@@ -1,0 +1,17 @@
+# Go build artifacts
+fmps
+*.exe
+*.test
+*.out
+build/
+
+# Wails
+frontend/dist/
+frontend/node_modules/
+
+# SQLite database (created at runtime)
+data.db
+
+# OS
+.DS_Store
+Thumbs.db
