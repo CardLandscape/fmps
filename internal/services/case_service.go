@@ -138,7 +138,9 @@ func (s *CaseService) GetCaseStats() (*models.CaseStats, error) {
 		for rows.Next() {
 			var status string
 			var count int64
-			rows.Scan(&status, &count)
+			if err := rows.Scan(&status, &count); err != nil {
+				return nil, err
+			}
 			stats.StatusCounts[status] = count
 		}
 	}
@@ -148,7 +150,9 @@ func (s *CaseService) GetCaseStats() (*models.CaseStats, error) {
 		defer memberRows.Close()
 		for memberRows.Next() {
 			mc := models.MemberCaseCount{}
-			memberRows.Scan(&mc.MemberID, &mc.MemberName, &mc.Count)
+			if err := memberRows.Scan(&mc.MemberID, &mc.MemberName, &mc.Count); err != nil {
+				return nil, err
+			}
 			stats.MemberCounts = append(stats.MemberCounts, mc)
 		}
 	}

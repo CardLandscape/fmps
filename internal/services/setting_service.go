@@ -36,7 +36,9 @@ func (s *SettingService) GetAllSettings() (map[string]string, error) {
 	result := make(map[string]string)
 	for rows.Next() {
 		var k, v string
-		rows.Scan(&k, &v)
+		if err := rows.Scan(&k, &v); err != nil {
+			return nil, err
+		}
 		result[k] = v
 	}
 	return result, nil
