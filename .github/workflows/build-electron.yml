@@ -1,0 +1,66 @@
+name: build-electron
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+          cache: true
+          cache-dependency-path: server/go.sum
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          cache: "npm"
+          cache-dependency-path: |
+            web/package-lock.json
+            electron/package-lock.json
+
+      - name: Build Go server binary (Windows)
+        shell: pwsh
+        working-directory: server
+        run: go build -o fmps-server.exe .
+
+      - name: Install web dependencies
+        shell: pwsh
+        working-directory: web
+        run: npm ci
+
+      - name: Build web frontend
+        shell: pwsh
+        working-directory: web
+        run: npm run build
+
+      - name: Install Electron dependencies
+        shell: pwsh
+        working-directory: electron
+        run: npm ci
+
+      - name: Build Electron (Windows)
+        shell: pwsh
+        working-directory: electron
+        run: npm run build
+
+      - name: Upload Windows EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fmps-windows-amd64
+          path: electron/dist/*.exe
+          if-no-files-found: error
