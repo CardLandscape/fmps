@@ -55,20 +55,21 @@ function startGoServer() {
   return serverProcess
 }
 
-function waitForServer(port, retries = 30) {
+function waitForServer(port, maxAttempts = 30) {
   return new Promise((resolve, reject) => {
     let attempts = 0
 
     function poll() {
       attempts++
-      const req = http.get(`http://localhost:${port}/api/`, (res) => {
+      // Use /api/login as the health check — it always responds even without auth
+      const req = http.get(`http://localhost:${port}/api/login`, (res) => {
         console.log(`[server] ready after ${attempts} attempt(s)`)
         resolve()
       })
 
       req.on('error', () => {
-        if (attempts >= retries) {
-          reject(new Error(`Server on port ${port} did not start after ${retries} attempts`))
+        if (attempts >= maxAttempts) {
+          reject(new Error(`Server on port ${port} did not start after ${maxAttempts} attempts`))
           return
         }
         setTimeout(poll, 1000)
@@ -76,8 +77,8 @@ function waitForServer(port, retries = 30) {
 
       req.setTimeout(1000, () => {
         req.destroy()
-        if (attempts >= retries) {
-          reject(new Error(`Server on port ${port} timed out after ${retries} attempts`))
+        if (attempts >= maxAttempts) {
+          reject(new Error(`Server on port ${port} timed out after ${maxAttempts} attempts`))
           return
         }
         setTimeout(poll, 1000)
