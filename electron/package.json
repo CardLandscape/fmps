@@ -29,6 +29,10 @@
         "from": "../server",
         "to": "server",
         "filter": ["**/*", "!**/*.go", "!go.mod", "!go.sum"]
+      },
+      {
+        "from": "../web/dist",
+        "to": "web/dist"
       }
     ],
     "linux": {
