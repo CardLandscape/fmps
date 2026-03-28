@@ -4,7 +4,9 @@ import "time"
 
 type Member struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
-	Name      string    `gorm:"not null" json:"name"`
+	Name      string    `json:"name"`
+	NameCn    string    `json:"name_cn"` // 中文姓名
+	NameEn    string    `json:"name_en"` // 英文姓名
 	Role      string    `json:"role"`
 	Avatar    string    `json:"avatar"`
 
