@@ -19,6 +19,10 @@ function startGoServer() {
     FMPS_DB_PATH: path.join(app.getPath('userData'), 'fmps.db')
   }
 
+  if (!isDev) {
+    env.FMPS_WEB_DIR = path.join(process.resourcesPath, 'web', 'dist')
+  }
+
   if (isDev) {
     const serverDir = path.join(__dirname, '../server')
     console.log('[server] Starting in dev mode via go run:', serverDir)
