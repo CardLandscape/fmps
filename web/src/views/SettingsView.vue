@@ -39,6 +39,16 @@
         style="margin-bottom: 20px"
       />
 
+      <el-divider content-position="left">授权密码</el-divider>
+      <el-form-item label="授权密码">
+        <el-input
+          v-model="form.authorization_password"
+          type="password"
+          show-password
+          placeholder="用于撤回扣分的授权密码（默认：123456）"
+        />
+      </el-form-item>
+
       <el-form-item>
         <el-button type="primary" :loading="saving" @click="handleSave">保存设置</el-button>
         <el-button @click="loadSettings">重 置</el-button>
@@ -59,7 +69,8 @@ const formRef = ref(null)
 const form = reactive({
   admin_username: '',
   new_password: '',
-  confirm_password: ''
+  confirm_password: '',
+  authorization_password: ''
 })
 
 const validateConfirmPassword = (_rule, value, callback) => {
@@ -82,6 +93,7 @@ async function loadSettings() {
     form.admin_username = res.data?.admin_username ?? ''
     form.new_password = ''
     form.confirm_password = ''
+    form.authorization_password = ''
   } catch {
     ElMessage.error('加载设置失败')
   } finally {
@@ -103,6 +115,9 @@ async function handleSave() {
     const payload = { admin_username: form.admin_username }
     if (form.new_password) {
       payload.admin_password = form.new_password
+    }
+    if (form.authorization_password) {
+      payload.authorization_password = form.authorization_password
     }
     await updateSettings(payload)
     ElMessage.success('设置保存成功')

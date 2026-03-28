@@ -18,6 +18,8 @@ func Init(dbPath string) (*gorm.DB, error) {
 		&models.Member{},
 		&models.Rule{},
 		&models.Record{},
+		&models.Case{},
+		&models.PenaltyPoint{},
 	)
 	if err != nil {
 		return nil, err
