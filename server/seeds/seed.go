@@ -20,7 +20,8 @@ func Run(db *gorm.DB) {
 		db.Create(&models.Setting{Key: "admin_password", Value: string(hashed)})
 	}
 
-	// Seed sample rules if table is empty
+	// Seed authorization_password if not set
+	db.Clauses(clause.OnConflict{DoNothing: true}).Create(&models.Setting{Key: "authorization_password", Value: "123456"})
 	var count int64
 	db.Model(&models.Rule{}).Count(&count)
 	if count == 0 {

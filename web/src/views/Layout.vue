@@ -28,6 +28,10 @@
           <el-icon><Document /></el-icon>
           <span>惩戒记录</span>
         </el-menu-item>
+        <el-menu-item index="/cases">
+          <el-icon><Folder /></el-icon>
+          <span>案件管理</span>
+        </el-menu-item>
         <el-menu-item index="/settings">
           <el-icon><Setting /></el-icon>
           <span>系统设置</span>

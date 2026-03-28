@@ -62,6 +62,8 @@ func SetupRouter(db *gorm.DB, cfg Config) *gin.Engine {
 	recordHandler := &handlers.RecordHandler{DB: db}
 	settingHandler := &handlers.SettingHandler{DB: db}
 	statsHandler := &handlers.StatsHandler{DB: db}
+	caseHandler := &handlers.CaseHandler{DB: db}
+	penaltyHandler := &handlers.PenaltyHandler{DB: db}
 
 	// Public routes
 	r.GET("/api/health", func(c *gin.Context) {
@@ -90,6 +92,17 @@ func SetupRouter(db *gorm.DB, cfg Config) *gin.Engine {
 		api.PUT("/settings", settingHandler.Update)
 
 		api.GET("/stats", statsHandler.Get)
+
+		api.GET("/cases", caseHandler.List)
+		api.POST("/cases", caseHandler.Create)
+		api.GET("/cases/:id", caseHandler.Get)
+		api.PUT("/cases/:id", caseHandler.Update)
+		api.DELETE("/cases/:id", caseHandler.Delete)
+		api.POST("/cases/:id/start", caseHandler.StartPunishment)
+		api.POST("/cases/:id/complete", caseHandler.CompletePunishment)
+		api.POST("/cases/:id/penalty", penaltyHandler.AddPenalty)
+
+		api.POST("/penalty/:id/revoke", penaltyHandler.RevokePenalty)
 	}
 
 	return r
