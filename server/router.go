@@ -30,13 +30,17 @@ func SetupRouter(db *gorm.DB, cfg Config) *gin.Engine {
 		AllowCredentials: false,
 	}))
 
-	// Serve static files from ../web/dist (relative to executable)
-	execPath, err := os.Executable()
+	// Serve static files: use FMPS_WEB_DIR if set, otherwise fall back to ../web/dist relative to executable
 	var distDir string
-	if err == nil {
-		distDir = filepath.Join(filepath.Dir(execPath), "..", "web", "dist")
+	if envDir := os.Getenv("FMPS_WEB_DIR"); envDir != "" {
+		distDir = envDir
 	} else {
-		distDir = filepath.Join("..", "web", "dist")
+		execPath, err := os.Executable()
+		if err == nil {
+			distDir = filepath.Join(filepath.Dir(execPath), "..", "web", "dist")
+		} else {
+			distDir = filepath.Join("..", "web", "dist")
+		}
 	}
 
 	if _, err := os.Stat(distDir); err == nil {
