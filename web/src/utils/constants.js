@@ -318,7 +318,6 @@ export function getAvailableCountries(docType) {
 export function validateNationalityDocType(docType, nationality) {
   if (!docType || !nationality) return null
   const allowed = getAllowedNationalities(docType)
-  if (!docType) return null
   if (Array.isArray(allowed) && allowed.length === 0) return null
   if (Array.isArray(allowed)) {
     if (!allowed.includes(nationality)) {

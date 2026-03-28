@@ -11,7 +11,9 @@
     </template>
 
     <el-table :data="members" v-loading="loading" stripe style="width: 100%">
-      <el-table-column prop="name_cn" label="姓名" />
+      <el-table-column label="姓名">
+        <template #default="{ row }">{{ getMemberDisplayName(row) }}</template>
+      </el-table-column>
       <el-table-column prop="role" label="角色" width="80">
         <template #default="{ row }">
           <el-tag :type="row.role === 'child' ? 'warning' : 'success'">
@@ -358,6 +360,10 @@ watch(
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function getMemberDisplayName(member) {
+  return member.name_cn || member.name || '-'
+}
+
 function formatDate(val) {
   if (!val) return '-'
   return new Date(val).toLocaleString('zh-CN', { hour12: false })
@@ -521,7 +527,7 @@ async function handleSave() {
 async function handleDelete(row) {
   try {
     await ElMessageBox.confirm(
-      `确定要删除成员「${row.name_cn || row.name}」吗？`,
+      `确定要删除成员「${getMemberDisplayName(row)}」吗？`,
       '删除确认',
       { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
     )

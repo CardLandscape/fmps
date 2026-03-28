@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"fmps/models"
 
@@ -77,7 +76,7 @@ func validateIDNumber(docType, number, nationality string) error {
 			return fmt.Errorf("中国护照号码格式错误（E+8位数字 或 E+1字母+7位数字）")
 		}
 	case "05":
-		l := utf8.RuneCountInString(number)
+		l := len(number)
 		if l < 6 || l > 9 {
 			return fmt.Errorf("外国护照号码长度必须为 6-9 位")
 		}
@@ -135,6 +134,10 @@ func validateChineseID(id string) error {
 	}
 	expected := checkCodes[sum%11]
 	last := id[17]
+	// 大写处理，兼容小写 x
+	if last >= 'a' && last <= 'z' {
+		last = last - 32
+	}
 	if last != expected {
 		return fmt.Errorf("身份证校验码错误（期望 %c，实际 %c）", expected, last)
 	}
