@@ -1,0 +1,16 @@
+[Unit]
+Description=FMPS - 家庭惩戒管理系统
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/fmps
+ExecStart=/opt/fmps/fmps-server
+Environment=FMPS_PORT=8080
+Environment=FMPS_DB_PATH=/opt/fmps/data/fmps.db
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
