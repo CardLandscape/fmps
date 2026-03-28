@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"fmps/handlers"
 	"fmps/middleware"
@@ -38,7 +39,7 @@ func SetupRouter(db *gorm.DB, cfg Config) *gin.Engine {
 		r.Static("/assets", filepath.Join(distDir, "assets"))
 		r.StaticFile("/favicon.ico", filepath.Join(distDir, "favicon.ico"))
 		r.NoRoute(func(c *gin.Context) {
-			if len(c.Request.URL.Path) >= 4 && c.Request.URL.Path[:4] == "/api" {
+			if strings.HasPrefix(c.Request.URL.Path, "/api") {
 				c.JSON(http.StatusNotFound, gin.H{"message": "接口不存在"})
 				return
 			}

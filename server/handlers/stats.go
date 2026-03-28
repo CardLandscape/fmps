@@ -29,20 +29,34 @@ func (h *StatsHandler) Get(c *gin.Context) {
 	h.DB.Model(&models.Record{}).Count(&totalRecords)
 	h.DB.Model(&models.Record{}).Select("COALESCE(SUM(points), 0)").Scan(&totalPoints)
 
+	// Single aggregated query to avoid N+1
+	type memberAgg struct {
+		MemberID    uint  `gorm:"column:member_id"`
+		RecordCount int64 `gorm:"column:record_count"`
+		TotalPoints int64 `gorm:"column:total_points"`
+	}
+	var aggs []memberAgg
+	h.DB.Model(&models.Record{}).
+		Select("member_id, COUNT(*) as record_count, COALESCE(SUM(points), 0) as total_points").
+		Group("member_id").
+		Scan(&aggs)
+
+	aggMap := make(map[uint]memberAgg, len(aggs))
+	for _, a := range aggs {
+		aggMap[a.MemberID] = a
+	}
+
 	var members []models.Member
 	h.DB.Find(&members)
 
 	memberStats := make([]MemberStat, 0, len(members))
 	for _, m := range members {
-		var count int64
-		var points int64
-		h.DB.Model(&models.Record{}).Where("member_id = ?", m.ID).Count(&count)
-		h.DB.Model(&models.Record{}).Where("member_id = ?", m.ID).Select("COALESCE(SUM(points), 0)").Scan(&points)
+		a := aggMap[m.ID]
 		memberStats = append(memberStats, MemberStat{
 			MemberID:    m.ID,
 			MemberName:  m.Name,
-			RecordCount: count,
-			TotalPoints: points,
+			RecordCount: a.RecordCount,
+			TotalPoints: a.TotalPoints,
 		})
 	}
 
