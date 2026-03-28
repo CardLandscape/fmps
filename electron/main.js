@@ -61,8 +61,8 @@ function waitForServer(port, maxAttempts = 30) {
 
     function poll() {
       attempts++
-      // Use /api/login as the health check — it always responds even without auth
-      const req = http.get(`http://localhost:${port}/api/login`, (res) => {
+      // Use dedicated health endpoint
+      const req = http.get(`http://localhost:${port}/api/health`, (res) => {
         console.log(`[server] ready after ${attempts} attempt(s)`)
         resolve()
       })

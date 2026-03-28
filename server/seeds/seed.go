@@ -3,6 +3,7 @@ package seeds
 import (
 	"fmps/models"
 
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -10,7 +11,14 @@ import (
 func Run(db *gorm.DB) {
 	// Upsert default credentials (only insert if not exists)
 	db.Clauses(clause.OnConflict{DoNothing: true}).Create(&models.Setting{Key: "admin_username", Value: "admin"})
-	db.Clauses(clause.OnConflict{DoNothing: true}).Create(&models.Setting{Key: "admin_password", Value: "123456"})
+
+	// Store bcrypt hash of default password if not set yet
+	var pwSetting models.Setting
+	if err := db.Where("key = ?", "admin_password").First(&pwSetting).Error; err != nil {
+		// Not found: create with hashed default password
+		hashed, _ := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
+		db.Create(&models.Setting{Key: "admin_password", Value: string(hashed)})
+	}
 
 	// Seed sample rules if table is empty
 	var count int64

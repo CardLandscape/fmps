@@ -17,9 +17,13 @@ import (
 func SetupRouter(db *gorm.DB, cfg Config) *gin.Engine {
 	r := gin.Default()
 
-	// CORS
+	// CORS - allow localhost origins for development; restrict as needed via FMPS_CORS_ORIGIN env
+	allowedOrigins := []string{"http://localhost:5173", "http://localhost:8080", "http://127.0.0.1:8080"}
+	if envOrigin := os.Getenv("FMPS_CORS_ORIGIN"); envOrigin != "" {
+		allowedOrigins = append(allowedOrigins, envOrigin)
+	}
 	r.Use(cors.New(cors.Config{
-		AllowAllOrigins:  true,
+		AllowOrigins:     allowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -56,6 +60,9 @@ func SetupRouter(db *gorm.DB, cfg Config) *gin.Engine {
 	statsHandler := &handlers.StatsHandler{DB: db}
 
 	// Public routes
+	r.GET("/api/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
 	r.POST("/api/login", authHandler.Login)
 
 	// Protected routes

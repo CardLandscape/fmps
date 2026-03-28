@@ -18,7 +18,7 @@ echo "后端 API 已启动 (PID: $SERVER_PID)"
 echo "等待服务器就绪..."
 SERVER_READY=0
 for i in $(seq 1 30); do
-    if curl -s http://localhost:8080/api/login > /dev/null 2>&1; then
+    if curl -s http://localhost:8080/api/health > /dev/null 2>&1; then
         echo "服务器已就绪"
         SERVER_READY=1
         break

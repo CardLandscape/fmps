@@ -7,6 +7,7 @@ import (
 	"fmps/models"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -41,6 +42,15 @@ func (h *SettingHandler) Update(c *gin.Context) {
 	}
 
 	for key, value := range updates {
+		// Hash password before storing
+		if key == "admin_password" {
+			hashed, err := bcrypt.GenerateFromPassword([]byte(value), bcrypt.DefaultCost)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"message": "密码处理失败"})
+				return
+			}
+			value = string(hashed)
+		}
 		setting := models.Setting{Key: key, Value: value}
 		h.DB.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "key"}},

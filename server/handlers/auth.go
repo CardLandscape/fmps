@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -36,7 +37,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	if req.Username != usernameSetting.Value || req.Password != passwordSetting.Value {
+	if req.Username != usernameSetting.Value {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "用户名或密码错误"})
+		return
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(passwordSetting.Value), []byte(req.Password)); err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"message": "用户名或密码错误"})
 		return
 	}
