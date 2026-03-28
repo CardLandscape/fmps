@@ -28,7 +28,8 @@ function startGoServer() {
       stdio: ['ignore', 'pipe', 'pipe']
     })
   } else {
-    const binaryPath = path.join(process.resourcesPath, 'server', 'fmps-server')
+    const binaryName = process.platform === 'win32' ? 'fmps-server.exe' : 'fmps-server'
+    const binaryPath = path.join(process.resourcesPath, 'server', binaryName)
     console.log('[server] Starting production binary:', binaryPath)
     serverProcess = spawn(binaryPath, [], {
       env,
