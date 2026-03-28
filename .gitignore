@@ -1,0 +1,41 @@
+# Go build artifacts
+server/fmps-server
+server/fmps-server.exe
+*.exe
+*.out
+
+# Web dependencies and build
+web/node_modules/
+web/dist/
+
+# Electron dependencies and build
+electron/node_modules/
+electron/dist/
+electron/resources/fmps-server
+electron/resources/fmps-server.exe
+
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal
+
+# Environment files
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temp build files
+/tmp/fmps-server
