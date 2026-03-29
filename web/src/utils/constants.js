@@ -357,9 +357,14 @@ function validateChineseID(id) {
 }
 
 /**
- * 前端证件号码校验
+ * 前端证件号码校验（主证件及辅助证件通用）
+ * @param {string} docType
+ * @param {string} number
+ * @param {string} nationality
+ * @param {string} [birthDate]  YYYY-MM-DD，校验93停发代码时需要
+ * @returns {string|null}
  */
-export function validateIDNumber(docType, number, nationality) {
+export function validateIDNumber(docType, number, nationality, birthDate) {
   if (!number) return null
   switch (docType) {
     case '01':
@@ -390,6 +395,22 @@ export function validateIDNumber(docType, number, nationality) {
       return number.length >= 6 && number.length <= 9 ? null : '外国护照号码长度必须为 6-9 位'
     case '52':
       return /^(HA|MA)\d{7}$/.test(number) ? null : '港澳通行证（非中国籍）格式错误（HA/MA + 7位数字）'
+    // ── 辅助证件类型 ────────────────────────────────────────────────────────
+    case '90':
+    case '92':
+    case '95': {
+      const upper = number.toUpperCase()
+      if (upper.startsWith('W')) {
+        return '此证件号码为根据补充劳工计划签发给来港就业的工人的身份证号码，该证持有人不具有香港居留权及不合资格申请回乡证'
+      }
+      return /^[A-Za-z]{1,2}\d{7}$/.test(number) ? null : '证件号码格式错误（1-2位字母 + 7位数字）'
+    }
+    case '93':
+      return validate93Number(number, birthDate)
+    case '96':
+    case '97':
+    case '98':
+      return /^[157]\d{7}$/.test(number) ? null : '澳门居民身份证号码格式错误（8位数字，以1/5/7开头）'
     default:
       return null
   }
@@ -404,3 +425,54 @@ export const GRADES = [
 
 // 班级选项（1-40）
 export const CLASSES = Array.from({ length: 40 }, (_, i) => String(i + 1))
+
+// 辅助证件类型
+export const AUX_DOC_TYPES = [
+  { code: '02', name: '港澳居民来往内地通行证' },
+  { code: '03', name: '台湾居民来往大陆通行证' },
+  { code: '90', name: '香港永久性居民身份证' },
+  { code: '92', name: '香港居民身份证' },
+  { code: '93', name: '台湾居民身份证' },
+  { code: '94', name: '中国公民定居国外的证明文件' },
+  { code: '95', name: '香港永久性居民身份证（外国籍）' },
+  { code: '96', name: '澳门居民身份证' },
+  { code: '97', name: '澳门永久性居民身份证' },
+  { code: '98', name: '澳门永久性居民身份证（外国籍）' }
+]
+
+// 证明文件类型（主证件 04 时 aux 为 94）
+export const PROOF_DOC_TYPES = [
+  { code: '94RV', name: '定居签证' },
+  { code: '94PV', name: '永久居留签证' },
+  { code: '94PC', name: '永久居留卡' },
+  { code: '94PE', name: '永久居留电子签证' },
+  { code: '94NP', name: '国家移民管理局护照查询结果' }
+]
+
+// 台湾居民身份证（93）地区代码停发日期表
+const TW93_STOP_DATES = {
+  L: '2010-12-25', // 台中县
+  R: '2010-12-25', // 台南县
+  S: '2010-12-25', // 高雄县
+  Y: '1974-01-01'  // 阳明山管理局
+}
+
+/**
+ * 校验台湾居民身份证（93）号码：含停发代码与出生日期联动
+ * @param {string} number
+ * @param {string} birthDate  YYYY-MM-DD
+ * @returns {string|null}
+ */
+export function validate93Number(number, birthDate) {
+  if (!number) return null
+  if (!/^[A-Za-z]\d{9}$/.test(number)) return '台湾居民身份证号码格式错误（1位字母 + 9位数字）'
+  const code = number[0].toUpperCase()
+  if (TW93_STOP_DATES[code] && birthDate) {
+    const stopDate = new Date(TW93_STOP_DATES[code])
+    const birth = new Date(birthDate)
+    if (birth > stopDate) {
+      return `代码 ${code} 已于 ${TW93_STOP_DATES[code]} 停止赋配，出生日期晚于停发日期，不允许使用此代码`
+    }
+  }
+  return null
+}

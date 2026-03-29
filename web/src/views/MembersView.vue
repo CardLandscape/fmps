@@ -51,7 +51,7 @@
     @closed="resetForm"
   >
     <div style="max-height: 70vh; overflow-y: auto; padding-right: 8px">
-      <el-form ref="formRef" :model="form" :rules="formRules" label-width="120px">
+      <el-form ref="formRef" :model="form" :rules="formRules" label-width="130px">
 
         <!-- 基本信息 -->
         <el-divider content-position="left">基本信息</el-divider>
@@ -61,7 +61,7 @@
         </el-form-item>
 
         <el-form-item label="英文姓名" prop="name_en">
-          <el-input v-model="form.name_en" placeholder="请输入英文姓名（可选）" />
+          <el-input v-model="form.name_en" placeholder="请输入英文姓名（必填）" />
         </el-form-item>
 
         <el-form-item label="角色" prop="role">
@@ -81,7 +81,7 @@
         <el-form-item label="国籍" prop="nationality">
           <el-select
             v-model="form.nationality"
-            placeholder="请选择国籍"
+            placeholder="请选择国籍（必填）"
             filterable
             style="width: 100%"
             @change="onNationalityChange"
@@ -99,7 +99,7 @@
           <el-date-picker
             v-model="form.birth_date"
             type="date"
-            placeholder="选择出生日期"
+            placeholder="选择出生日期（必填）"
             value-format="YYYY-MM-DD"
             style="width: 100%"
           />
@@ -118,7 +118,7 @@
             <el-option
               v-for="t in ID_DOC_TYPES"
               :key="t.code"
-              :label="t.name"
+              :label="`${t.code} - ${t.name}`"
               :value="t.code"
             />
           </el-select>
@@ -153,28 +153,94 @@
         </el-form-item>
 
         <!-- 辅助证件 -->
-        <el-divider content-position="left">辅助证件信息</el-divider>
+        <template v-if="auxConfig.showAux">
+          <el-divider content-position="left">辅助证件信息</el-divider>
 
-        <el-form-item label="辅助证件类型" prop="aux_doc_type">
-          <el-select
-            v-model="form.aux_doc_type"
-            placeholder="请选择辅助证件类型（可选）"
-            clearable
-            style="width: 100%"
-            @change="onAuxDocTypeChange"
-          >
-            <el-option
-              v-for="t in ID_DOC_TYPES"
-              :key="t.code"
-              :label="t.name"
-              :value="t.code"
-            />
-          </el-select>
-        </el-form-item>
+          <!-- 辅助证件 1 -->
+          <template v-if="auxConfig.aux1">
+            <el-form-item label="辅助证件1类型" prop="aux1_type">
+              <el-select
+                v-model="form.aux1_type"
+                placeholder="请选择辅助证件1类型"
+                :disabled="auxConfig.aux1.types.length === 1"
+                clearable
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="t in auxConfig.aux1.types"
+                  :key="t.code"
+                  :label="`${t.code} - ${t.name}`"
+                  :value="t.code"
+                />
+              </el-select>
+            </el-form-item>
 
-        <el-form-item label="辅助证件号码" prop="aux_doc_number" :error="auxDocNumberError">
-          <el-input v-model="form.aux_doc_number" placeholder="请输入辅助证件号码（可选）" />
-        </el-form-item>
+            <el-form-item label="辅助证件1号码" prop="aux1_number" :error="aux1NumberError">
+              <el-input v-model="form.aux1_number" placeholder="请输入辅助证件1号码" />
+            </el-form-item>
+
+            <!-- 证明文件字段（主证件04且辅助证件1类型94时） -->
+            <template v-if="form.aux1_type === '94'">
+              <el-form-item label="证明文件类型" prop="proof_doc_type">
+                <el-select
+                  v-model="form.proof_doc_type"
+                  placeholder="请选择证明文件类型"
+                  style="width: 100%"
+                  @change="onProofDocTypeChange"
+                >
+                  <el-option
+                    v-for="t in PROOF_DOC_TYPES"
+                    :key="t.code"
+                    :label="`${t.code} - ${t.name}`"
+                    :value="t.code"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <el-form-item label="签发国家" prop="proof_issue_country">
+                <el-select
+                  v-model="form.proof_issue_country"
+                  placeholder="请选择签发国家"
+                  filterable
+                  :disabled="form.proof_doc_type === '94NP'"
+                  style="width: 100%"
+                  @change="onProofCountryChange"
+                >
+                  <el-option
+                    v-for="c in proofCountryOptions"
+                    :key="c.code"
+                    :label="`${c.code} - ${c.name}`"
+                    :value="c.code"
+                  />
+                </el-select>
+              </el-form-item>
+            </template>
+          </template>
+
+          <!-- 辅助证件 2 -->
+          <template v-if="auxConfig.aux2">
+            <el-form-item label="辅助证件2类型" prop="aux2_type">
+              <el-select
+                v-model="form.aux2_type"
+                placeholder="请选择辅助证件2类型"
+                :disabled="auxConfig.aux2.types.length === 1"
+                clearable
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="t in auxConfig.aux2.types"
+                  :key="t.code"
+                  :label="`${t.code} - ${t.name}`"
+                  :value="t.code"
+                />
+              </el-select>
+            </el-form-item>
+
+            <el-form-item label="辅助证件2号码" prop="aux2_number" :error="aux2NumberError">
+              <el-input v-model="form.aux2_number" placeholder="请输入辅助证件2号码" />
+            </el-form-item>
+          </template>
+        </template>
 
         <!-- 学校信息 -->
         <el-divider content-position="left">学校信息</el-divider>
@@ -275,6 +341,8 @@ import { getMembers, createMember, updateMember, deleteMember } from '@/utils/ap
 import {
   COUNTRIES,
   ID_DOC_TYPES,
+  AUX_DOC_TYPES,
+  PROOF_DOC_TYPES,
   GRADES,
   CLASSES,
   getAvailableCountries,
@@ -292,7 +360,8 @@ const editingId = ref(null)
 const formRef = ref(null)
 
 const idDocNumberError = ref('')
-const auxDocNumberError = ref('')
+const aux1NumberError = ref('')
+const aux2NumberError = ref('')
 
 const outingDatesArray = ref([])
 const outingTimeRanges = ref([])
@@ -309,8 +378,12 @@ const form = reactive({
   id_issue_date: '',
   id_expiry_date: '',
   id_issue_authority: '',
-  aux_doc_type: '',
-  aux_doc_number: '',
+  aux1_type: '',
+  aux1_number: '',
+  aux2_type: '',
+  aux2_number: '',
+  proof_doc_type: '',
+  proof_issue_country: '',
   school_name: '',
   grade: '',
   class_name: '',
@@ -323,27 +396,128 @@ const form = reactive({
 
 // ─── Computed ─────────────────────────────────────────────────────────────────
 
-const nationalityOptions = computed(() => {
-  const fromMain = form.id_doc_type ? getAvailableCountries(form.id_doc_type) : null
-  const fromAux = form.aux_doc_type ? getAvailableCountries(form.aux_doc_type) : null
-
-  if (!fromMain && !fromAux) return COUNTRIES
-  if (fromMain && !fromAux) return fromMain
-  if (!fromMain && fromAux) return fromAux
-
-  // Both set: intersection (codes present in both lists)
-  const auxCodes = new Set(fromAux.map(c => c.code))
-  return fromMain.filter(c => auxCodes.has(c.code))
+/**
+ * 根据主证件类型决定辅助证件配置
+ */
+const auxConfig = computed(() => {
+  const main = form.id_doc_type
+  if (!main) {
+    return { showAux: true, aux1: { types: AUX_DOC_TYPES, required: false }, aux2: null }
+  }
+  switch (main) {
+    case '01':
+    case '91':
+      return { showAux: false, aux1: null, aux2: null }
+    case '11':
+      return {
+        showAux: true,
+        aux1: {
+          types: AUX_DOC_TYPES.filter(t => t.code === '02'),
+          required: true
+        },
+        aux2: {
+          types: AUX_DOC_TYPES.filter(t => ['90', '92', '96', '97'].includes(t.code)),
+          required: true
+        }
+      }
+    case '21':
+      return {
+        showAux: true,
+        aux1: {
+          types: AUX_DOC_TYPES.filter(t => t.code === '03'),
+          required: true
+        },
+        aux2: {
+          types: AUX_DOC_TYPES.filter(t => t.code === '93'),
+          required: true
+        }
+      }
+    case '04':
+      return {
+        showAux: true,
+        aux1: {
+          types: AUX_DOC_TYPES.filter(t => t.code === '94'),
+          required: true
+        },
+        aux2: null
+      }
+    case '05':
+      return { showAux: false, aux1: null, aux2: null }
+    case '52':
+      return {
+        showAux: true,
+        aux1: {
+          types: AUX_DOC_TYPES.filter(t => ['95', '98'].includes(t.code)),
+          required: true
+        },
+        aux2: null
+      }
+    default:
+      return {
+        showAux: true,
+        aux1: { types: AUX_DOC_TYPES, required: false },
+        aux2: null
+      }
+  }
 })
 
-const formRules = computed(() => ({
-  name_cn: form.nationality === 'CHN' ? [{ required: true, message: '中文姓名为必填项', trigger: 'blur' }] : [],
-  role: [{ required: true, message: '请选择角色', trigger: 'change' }],
-  gender: [{ required: true, message: '请选择性别', trigger: 'change' }]
-}))
+/**
+ * 证明文件签发国家选项：94NP时固定为CHN，其余排除CHN/HKG/MAC/TWN
+ */
+const proofCountryOptions = computed(() => {
+  if (form.proof_doc_type === '94NP') {
+    return COUNTRIES.filter(c => c.code === 'CHN')
+  }
+  const restricted = new Set(['CHN', 'HKG', 'MAC', 'TWN'])
+  return COUNTRIES.filter(c => !restricted.has(c.code))
+})
+
+const nationalityOptions = computed(() => {
+  const fromMain = form.id_doc_type ? getAvailableCountries(form.id_doc_type) : null
+  if (!fromMain) return COUNTRIES
+  return fromMain
+})
+
+const formRules = computed(() => {
+  const rules = {
+    name_en: [{ required: true, message: '英文姓名为必填项', trigger: 'blur' }],
+    nationality: [{ required: true, message: '请选择国籍', trigger: 'change' }],
+    birth_date: [{ required: true, message: '请选择出生日期', trigger: 'change' }],
+    id_doc_type: [{ required: true, message: '请选择主证件类型', trigger: 'change' }],
+    id_doc_number: [{ required: true, message: '请输入主证件号码', trigger: 'blur' }],
+    id_issue_date: [{ required: true, message: '请选择签发日期', trigger: 'change' }],
+    id_expiry_date: [{ required: true, message: '请选择有效期', trigger: 'change' }],
+    id_issue_authority: [{ required: true, message: '请输入签发机关', trigger: 'blur' }],
+    role: [{ required: true, message: '请选择角色', trigger: 'change' }],
+    gender: [{ required: true, message: '请选择性别', trigger: 'change' }]
+  }
+
+  // CHN：中文姓名也必填
+  if (form.nationality === 'CHN') {
+    rules.name_cn = [{ required: true, message: '国籍为CHN时中文姓名为必填项', trigger: 'blur' }]
+  }
+
+  const ac = auxConfig.value
+  if (ac.aux1?.required) {
+    rules.aux1_type = [{ required: true, message: '请选择辅助证件1类型', trigger: 'change' }]
+    rules.aux1_number = [{ required: true, message: '请输入辅助证件1号码', trigger: 'blur' }]
+  }
+  if (ac.aux2?.required) {
+    rules.aux2_type = [{ required: true, message: '请选择辅助证件2类型', trigger: 'change' }]
+    rules.aux2_number = [{ required: true, message: '请输入辅助证件2号码', trigger: 'blur' }]
+  }
+  // 主证件04时证明文件字段必填
+  if (form.id_doc_type === '04') {
+    rules.proof_doc_type = [{ required: true, message: '请选择证明文件类型', trigger: 'change' }]
+    rules.proof_issue_country = [{ required: true, message: '请选择签发国家', trigger: 'change' }]
+  }
+
+  return rules
+})
 
 // ─── Watchers ─────────────────────────────────────────────────────────────────
 
+// 主证件号码实时校验
 watch(
   () => [form.id_doc_number, form.id_doc_type, form.nationality],
   ([number, docType, nationality]) => {
@@ -351,10 +525,70 @@ watch(
   }
 )
 
+// 辅助证件1号码实时校验
 watch(
-  () => [form.aux_doc_number, form.aux_doc_type, form.nationality],
-  ([number, docType, nationality]) => {
-    auxDocNumberError.value = validateIDNumber(docType, number, nationality) || ''
+  () => [form.aux1_number, form.aux1_type, form.nationality, form.birth_date, form.proof_doc_type],
+  ([number, docType, nationality, birthDate, proofDocType]) => {
+    if (!docType || !number) {
+      aux1NumberError.value = ''
+      return
+    }
+    if (docType === '94') {
+      // 94NP：H + 12位数字
+      if (proofDocType === '94NP') {
+        aux1NumberError.value = /^H\d{12}$/.test(number) ? '' : '94NP证件号码格式错误（H + 12位数字）'
+      } else {
+        aux1NumberError.value = ''
+      }
+    } else {
+      aux1NumberError.value = validateIDNumber(docType, number, nationality, birthDate) || ''
+    }
+  }
+)
+
+// 辅助证件2号码实时校验
+watch(
+  () => [form.aux2_number, form.aux2_type, form.nationality, form.birth_date],
+  ([number, docType, nationality, birthDate]) => {
+    aux2NumberError.value = validateIDNumber(docType, number, nationality, birthDate) || ''
+  }
+)
+
+// 主证件类型变更时自动设置辅助证件1类型（仅一个选项时）
+watch(
+  () => form.id_doc_type,
+  (newVal) => {
+    const ac = auxConfig.value
+    if (ac.aux1?.types.length === 1) {
+      form.aux1_type = ac.aux1.types[0].code
+    }
+    if (ac.aux2?.types.length === 1) {
+      form.aux2_type = ac.aux2.types[0].code
+    }
+    // 清空不适用的证明文件字段
+    if (newVal !== '04') {
+      form.proof_doc_type = ''
+      form.proof_issue_country = ''
+    }
+    // 清空辅助证件当主证件不允许时
+    if (['01', '91', '05'].includes(newVal)) {
+      form.aux1_type = ''
+      form.aux1_number = ''
+      form.aux2_type = ''
+      form.aux2_number = ''
+    }
+  }
+)
+
+// proof_doc_type 切换到 94NP 时自动设置签发国家为 CHN
+watch(
+  () => form.proof_doc_type,
+  (newVal) => {
+    if (newVal === '94NP') {
+      form.proof_issue_country = 'CHN'
+    } else if (form.proof_issue_country === 'CHN' && newVal && newVal !== '94NP') {
+      form.proof_issue_country = ''
+    }
   }
 )
 
@@ -379,14 +613,8 @@ function permissionTagType(p) {
 // ─── Nationality / doc type linkage ──────────────────────────────────────────
 
 function onNationalityChange(val) {
-  // Validate compatibility with main doc type
   if (form.id_doc_type) {
     const err = validateNationalityDocType(form.id_doc_type, val)
-    if (err) ElMessage.warning(err)
-  }
-  // Validate compatibility with aux doc type
-  if (form.aux_doc_type) {
-    const err = validateNationalityDocType(form.aux_doc_type, val)
     if (err) ElMessage.warning(err)
   }
 }
@@ -402,14 +630,31 @@ function onIdDocTypeChange(docType) {
   }
 }
 
-function onAuxDocTypeChange(docType) {
-  if (!docType) return
-  if (form.nationality) {
-    const available = getAvailableCountries(docType)
-    const stillValid = available.some(c => c.code === form.nationality)
-    if (!stillValid) {
-      form.nationality = ''
-      ElMessage.warning('当前国籍与所选辅助证件类型不兼容，已清空国籍')
+// ─── Proof doc handlers ───────────────────────────────────────────────────────
+
+function onProofDocTypeChange(val) {
+  if (val === '94NP') {
+    form.proof_issue_country = 'CHN'
+  } else if (form.proof_issue_country === 'CHN') {
+    form.proof_issue_country = ''
+  }
+}
+
+async function onProofCountryChange(val) {
+  const warningCountries = ['VUT', 'GIN', 'GNB']
+  if (warningCountries.includes(val)) {
+    try {
+      await ElMessageBox.confirm(
+        '此人近2年内是否实际居住在该国家超过18个月？如否，建议加强核实。',
+        '加强型警示',
+        {
+          type: 'warning',
+          confirmButtonText: '确认继续',
+          cancelButtonText: '返回修改'
+        }
+      )
+    } catch {
+      form.proof_issue_country = ''
     }
   }
 }
@@ -455,9 +700,14 @@ function openDialog(row = null) {
     Object.keys(form).forEach(k => {
       form[k] = row[k] ?? ''
     })
-    // Backward compatibility: use row.name if name_cn is absent
+    // Backward compat: use row.name if name_cn is absent
     if (!form.name_cn && row.name) {
       form.name_cn = row.name
+    }
+    // Backward compat: migrate old aux_doc_type → aux1
+    if (!form.aux1_type && row.aux_doc_type) {
+      form.aux1_type = row.aux_doc_type
+      form.aux1_number = row.aux_doc_number || ''
     }
     // Parse outing_dates
     try {
@@ -483,7 +733,8 @@ function resetForm() {
   outingDatesArray.value = []
   outingTimeRanges.value = []
   idDocNumberError.value = ''
-  auxDocNumberError.value = ''
+  aux1NumberError.value = ''
+  aux2NumberError.value = ''
   formRef.value?.resetFields()
 }
 
@@ -495,19 +746,42 @@ async function handleSave() {
     return
   }
 
-  // Block save if there are ID number validation errors
+  // 主证件号码错误
   if (idDocNumberError.value) {
-    ElMessage.error('主证件号码格式有误，请修正后保存')
+    ElMessage.error('主证件号码格式有误：' + idDocNumberError.value)
     return
   }
-  if (auxDocNumberError.value) {
-    ElMessage.error('辅助证件号码格式有误，请修正后保存')
+  // 辅助证件1号码错误
+  if (aux1NumberError.value) {
+    ElMessage.error('辅助证件1号码：' + aux1NumberError.value)
     return
+  }
+  // 辅助证件2号码错误
+  if (aux2NumberError.value) {
+    ElMessage.error('辅助证件2号码：' + aux2NumberError.value)
+    return
+  }
+
+  // VUT/GIN/GNB 加强型警示
+  if (form.proof_issue_country && ['VUT', 'GIN', 'GNB'].includes(form.proof_issue_country)) {
+    try {
+      await ElMessageBox.confirm(
+        '此人近2年内是否实际居住在该国家超过18个月？如否，建议加强核实。',
+        '加强型警示',
+        {
+          type: 'warning',
+          confirmButtonText: '确认继续',
+          cancelButtonText: '返回修改'
+        }
+      )
+    } catch {
+      return
+    }
   }
 
   saving.value = true
   try {
-    const payload = { ...form, name: form.name_cn }
+    const payload = { ...form, name: form.name_cn || form.name_en }
     if (editingId.value) {
       await updateMember(editingId.value, payload)
       ElMessage.success('成员已更新')
