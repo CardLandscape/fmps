@@ -87,10 +87,16 @@ func validateIDNumber(docType, number, nationality string) error {
 			return err
 		}
 	case "02":
-		// H/M + 8位数字
+		// H/M + 8位数字，国籍HKG必须H开头，MAC必须M开头
 		matched, _ := regexp.MatchString(`^[HM]\d{8}$`, number)
 		if !matched {
 			return fmt.Errorf("港澳通行证号码格式错误（H/M + 8位数字）")
+		}
+		if nationality == "HKG" && number[0] != 'H' {
+			return fmt.Errorf("国籍为HKG时，港澳通行证号码必须以H开头")
+		}
+		if nationality == "MAC" && number[0] != 'M' {
+			return fmt.Errorf("国籍为MAC时，港澳通行证号码必须以M开头")
 		}
 	case "03":
 		// 8位数字
@@ -287,9 +293,10 @@ func validateMember(m *models.Member) error {
 	if strings.TrimSpace(m.NameEn) == "" {
 		return fmt.Errorf("英文姓名（name_en）为必填项")
 	}
-	// 国籍为 CHN 时，中文姓名必填
-	if m.Nationality == "CHN" && strings.TrimSpace(m.NameCn) == "" {
-		return fmt.Errorf("国籍为 CHN 时，中文姓名（name_cn）为必填项")
+	// 国籍为 CHN/HKG/MAC/TWN 时，中文姓名必填
+	chineseNats := map[string]bool{"CHN": true, "HKG": true, "MAC": true, "TWN": true}
+	if chineseNats[m.Nationality] && strings.TrimSpace(m.NameCn) == "" {
+		return fmt.Errorf("国籍为 CHN/HKG/MAC/TWN 时，中文姓名（name_cn）为必填项")
 	}
 	// 国籍必填
 	if strings.TrimSpace(m.Nationality) == "" {
@@ -330,6 +337,22 @@ func validateMember(m *models.Member) error {
 	// 辅助证件约束
 	if err := validateAuxDocs(m); err != nil {
 		return err
+	}
+
+	// 就读学校名称需包含关键词
+	schoolName := strings.TrimSpace(m.SchoolName)
+	if schoolName != "" {
+		keywords := []string{"小学", "中学", "大学", "学院"}
+		hasKeyword := false
+		for _, kw := range keywords {
+			if strings.Contains(schoolName, kw) {
+				hasKeyword = true
+				break
+			}
+		}
+		if !hasKeyword {
+			return fmt.Errorf("就读学校名称须包含「小学」、「中学」、「大学」或「学院」之一")
+		}
 	}
 	return nil
 }
@@ -430,6 +453,56 @@ func validateAuxDocs(m *models.Member) error {
 		// 隐藏辅助证件
 		if aux1Type != "" || aux2Type != "" {
 			return fmt.Errorf("主证件类型05时不允许录入辅助证件")
+		}
+
+	case "31":
+		// 辅助证件类型只能为05（外国护照），可不填
+		if aux1Type != "" {
+			if aux1Type != "05" {
+				return fmt.Errorf("主证件为31时，辅助证件类型只能为05（外国护照）")
+			}
+			if aux1Num != "" {
+				if err := validateIDNumber("05", aux1Num, m.Nationality); err != nil {
+					return fmt.Errorf("辅助证件号码：%s", err)
+				}
+			}
+		}
+
+	case "02":
+		// 辅助类型限90/92/96/97；HKG仅90/92，MAC仅96/97
+		if aux1Type != "" {
+			allowedAux := map[string]bool{"90": true, "92": true, "96": true, "97": true}
+			if m.Nationality == "HKG" {
+				allowedAux = map[string]bool{"90": true, "92": true}
+			} else if m.Nationality == "MAC" {
+				allowedAux = map[string]bool{"96": true, "97": true}
+			}
+			if !allowedAux[aux1Type] {
+				if m.Nationality == "HKG" {
+					return fmt.Errorf("国籍为HKG时，辅助证件类型只能为90/92")
+				} else if m.Nationality == "MAC" {
+					return fmt.Errorf("国籍为MAC时，辅助证件类型只能为96/97")
+				}
+				return fmt.Errorf("主证件为02时，辅助证件类型只能为90/92/96/97")
+			}
+			if aux1Num != "" {
+				if err := validateIDNumber(aux1Type, aux1Num, m.Nationality); err != nil {
+					return fmt.Errorf("辅助证件号码：%s", err)
+				}
+			}
+		}
+
+	case "03":
+		// 辅助证件类型只能为93（台湾居民身份证），可不填
+		if aux1Type != "" {
+			if aux1Type != "93" {
+				return fmt.Errorf("主证件为03时，辅助证件类型只能为93（台湾居民身份证）")
+			}
+			if aux1Num != "" {
+				if err := validateTaiwan93(aux1Num, m.BirthDate); err != nil {
+					return fmt.Errorf("辅助证件号码：%s", err)
+				}
+			}
 		}
 
 	case "52":

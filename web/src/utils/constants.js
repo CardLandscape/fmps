@@ -387,8 +387,12 @@ export function validateIDNumber(docType, number, nationality, opts = {}) {
     case '31':
       if (number.length !== 18 || number[0] !== '9') return '外国人永久居留身份证必须以 9 开头且为18位'
       return validateChineseID(number)
-    case '02':
-      return /^[HM]\d{8}$/.test(number) ? null : '港澳通行证格式错误（H/M + 8位数字）'
+    case '02': {
+      if (!/^[HM]\d{8}$/.test(number)) return '港澳通行证格式错误（H/M + 8位数字）'
+      if (nationality === 'HKG' && number[0] !== 'H') return '国籍为HKG时，港澳通行证号码必须以H开头'
+      if (nationality === 'MAC' && number[0] !== 'M') return '国籍为MAC时，港澳通行证号码必须以M开头'
+      return null
+    }
     case '03':
       return /^\d{8}$/.test(number) ? null : '台湾居民来往大陆通行证必须为8位数字'
     case '04':
@@ -474,6 +478,7 @@ function validateAux94Number(number, proofDocType) {
 export const AUX_DOC_TYPES = [
   { code: '02', name: '02-港澳居民来往内地通行证' },
   { code: '03', name: '03-台湾居民来往大陆通行证' },
+  { code: '05', name: '05-外国护照' },
   { code: '90', name: '90-香港永久性居民身份证' },
   { code: '92', name: '92-香港居民身份证' },
   { code: '93', name: '93-台湾居民身份证' },
