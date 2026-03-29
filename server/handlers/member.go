@@ -287,6 +287,61 @@ func normalizeMember(m *models.Member) {
 	}
 }
 
+// validateIDGenderBirthdate checks that the gender digit and birthdate embedded in
+// Chinese-ID-format numbers (types 01/91/11/21/31) match the member's stated values.
+// Returns a generic "证件号码无效" on any mismatch to avoid exposing rule hints.
+func validateIDGenderBirthdate(docType, number, gender, birthDate string) error {
+	switch docType {
+	case "01", "91", "11", "21", "31":
+		if len(number) != 18 {
+			return fmt.Errorf("证件号码无效")
+		}
+		// Digits 7-14 (index 6-13) encode birthdate as YYYYMMDD
+		if birthDate != "" {
+			bd, err := time.Parse("2006-01-02", birthDate)
+			if err == nil {
+				if number[6:14] != bd.Format("20060102") {
+					return fmt.Errorf("证件号码无效")
+				}
+			}
+		}
+		// 17th digit (index 16): odd = male (男), even = female (女)
+		if number[16] < '0' || number[16] > '9' {
+			return fmt.Errorf("证件号码无效")
+		}
+		d := int(number[16] - '0')
+		idGender := "男"
+		if d%2 == 0 {
+			idGender = "女"
+		}
+		if gender != "" && gender != idGender {
+			return fmt.Errorf("证件号码无效")
+		}
+	}
+	return nil
+}
+
+// validateAux93Gender checks that the second character of a type-93 number is 1 or 2
+// and matches the member's stated gender (1=male/男, 2=female/女).
+// Returns a generic "证件号码无效" on any violation.
+func validateAux93Gender(number, gender string) error {
+	if len(number) < 2 {
+		return fmt.Errorf("证件号码无效")
+	}
+	c := number[1]
+	if c != '1' && c != '2' {
+		return fmt.Errorf("证件号码无效")
+	}
+	numGender := "男"
+	if c == '2' {
+		numGender = "女"
+	}
+	if gender != "" && gender != numGender {
+		return fmt.Errorf("证件号码无效")
+	}
+	return nil
+}
+
 // validateMember 验证成员数据合法性
 func validateMember(m *models.Member) error {
 	// 英文姓名必填（任何情况）
@@ -331,7 +386,11 @@ func validateMember(m *models.Member) error {
 		return fmt.Errorf("主证件：%s", err)
 	}
 	if err := validateIDNumber(m.IdDocType, m.IdDocNumber, m.Nationality); err != nil {
-		return fmt.Errorf("主证件号码：%s", err)
+		return fmt.Errorf("证件号码无效")
+	}
+	// 主证件性别与出生日期一致性校验（类型 01/91/11/21/31）
+	if err := validateIDGenderBirthdate(m.IdDocType, m.IdDocNumber, m.Gender, m.BirthDate); err != nil {
+		return err
 	}
 
 	// 辅助证件约束
@@ -381,7 +440,7 @@ func validateAuxDocs(m *models.Member) error {
 			return fmt.Errorf("辅助证件1号码为必填项")
 		}
 		if err := validateIDNumber("02", aux1Num, m.Nationality); err != nil {
-			return fmt.Errorf("辅助证件1号码：%s", err)
+			return fmt.Errorf("证件号码无效")
 		}
 		allowed2 := map[string]bool{"90": true, "92": true, "96": true, "97": true}
 		if !allowed2[aux2Type] {
@@ -391,7 +450,7 @@ func validateAuxDocs(m *models.Member) error {
 			return fmt.Errorf("辅助证件2号码为必填项")
 		}
 		if err := validateIDNumber(aux2Type, aux2Num, m.Nationality); err != nil {
-			return fmt.Errorf("辅助证件2号码：%s", err)
+			return fmt.Errorf("证件号码无效")
 		}
 
 	case "21":
@@ -403,7 +462,7 @@ func validateAuxDocs(m *models.Member) error {
 			return fmt.Errorf("辅助证件1号码为必填项")
 		}
 		if err := validateIDNumber("03", aux1Num, m.Nationality); err != nil {
-			return fmt.Errorf("辅助证件1号码：%s", err)
+			return fmt.Errorf("证件号码无效")
 		}
 		if aux2Type != "93" {
 			return fmt.Errorf("主证件为21时，辅助证件2类型必须为93（台湾居民身份证）")
@@ -412,7 +471,10 @@ func validateAuxDocs(m *models.Member) error {
 			return fmt.Errorf("辅助证件2号码为必填项")
 		}
 		if err := validateTaiwan93(aux2Num, m.BirthDate); err != nil {
-			return fmt.Errorf("辅助证件2号码：%s", err)
+			return fmt.Errorf("证件号码无效")
+		}
+		if err := validateAux93Gender(aux2Num, m.Gender); err != nil {
+			return err
 		}
 
 	case "04":
@@ -446,7 +508,7 @@ func validateAuxDocs(m *models.Member) error {
 		}
 		// 校验94号码
 		if err := validateAux94Number(aux1Num, proofType); err != nil {
-			return fmt.Errorf("辅助证件号码：%s", err)
+			return fmt.Errorf("证件号码无效")
 		}
 
 	case "05":
@@ -463,7 +525,7 @@ func validateAuxDocs(m *models.Member) error {
 			}
 			if aux1Num != "" {
 				if err := validateIDNumber("05", aux1Num, m.Nationality); err != nil {
-					return fmt.Errorf("辅助证件号码：%s", err)
+					return fmt.Errorf("证件号码无效")
 				}
 			}
 		}
@@ -487,7 +549,7 @@ func validateAuxDocs(m *models.Member) error {
 			}
 			if aux1Num != "" {
 				if err := validateIDNumber(aux1Type, aux1Num, m.Nationality); err != nil {
-					return fmt.Errorf("辅助证件号码：%s", err)
+					return fmt.Errorf("证件号码无效")
 				}
 			}
 		}
@@ -500,7 +562,10 @@ func validateAuxDocs(m *models.Member) error {
 			}
 			if aux1Num != "" {
 				if err := validateTaiwan93(aux1Num, m.BirthDate); err != nil {
-					return fmt.Errorf("辅助证件号码：%s", err)
+					return fmt.Errorf("证件号码无效")
+				}
+				if err := validateAux93Gender(aux1Num, m.Gender); err != nil {
+					return err
 				}
 			}
 		}
@@ -514,7 +579,7 @@ func validateAuxDocs(m *models.Member) error {
 			}
 			if aux1Num != "" {
 				if err := validateIDNumber(aux1Type, aux1Num, m.Nationality); err != nil {
-					return fmt.Errorf("辅助证件1号码：%s", err)
+					return fmt.Errorf("证件号码无效")
 				}
 			}
 		}

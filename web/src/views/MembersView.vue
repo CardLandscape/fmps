@@ -495,23 +495,23 @@ const formRules = computed(() => {
 // ─── Watchers ─────────────────────────────────────────────────────────────────
 
 watch(
-  () => [form.id_doc_number, form.id_doc_type, form.nationality],
-  ([number, docType, nationality]) => {
-    idDocNumberError.value = validateIDNumber(docType, number, nationality) || ''
+  () => [form.id_doc_number, form.id_doc_type, form.nationality, form.gender, form.birth_date],
+  ([number, docType, nationality, gender, birthDate]) => {
+    idDocNumberError.value = validateIDNumber(docType, number, nationality, { gender, birthDate }) || ''
   }
 )
 
 watch(
-  () => [form.aux1_doc_number, form.aux1_doc_type, form.nationality, form.birth_date, form.proof_doc_type],
-  ([number, docType, nationality, birthDate, proofDocType]) => {
-    aux1DocNumberError.value = validateIDNumber(docType, number, nationality, { birthDate, proofDocType }) || ''
+  () => [form.aux1_doc_number, form.aux1_doc_type, form.nationality, form.birth_date, form.proof_doc_type, form.gender],
+  ([number, docType, nationality, birthDate, proofDocType, gender]) => {
+    aux1DocNumberError.value = validateIDNumber(docType, number, nationality, { birthDate, proofDocType, gender }) || ''
   }
 )
 
 watch(
-  () => [form.aux2_doc_number, form.aux2_doc_type, form.nationality, form.birth_date],
-  ([number, docType, nationality, birthDate]) => {
-    aux2DocNumberError.value = validateIDNumber(docType, number, nationality, { birthDate }) || ''
+  () => [form.aux2_doc_number, form.aux2_doc_type, form.nationality, form.birth_date, form.gender],
+  ([number, docType, nationality, birthDate, gender]) => {
+    aux2DocNumberError.value = validateIDNumber(docType, number, nationality, { birthDate, gender }) || ''
   }
 )
 
