@@ -129,8 +129,11 @@ func validateIDNumber(docType, number, nationality string) error {
 			return err
 		}
 	case "93":
-		// 1位字母（台湾地区码）+ 9位数字；检查停发日期
-		return nil // 93 的出生日期需要外层传入，此处仅做格式检查
+		// 1位字母（台湾地区码）+ 9位数字；停发日期检查在 validateTaiwan93 中处理
+		matched, _ := regexp.MatchString(`^[A-Za-z]\d{9}$`, number)
+		if !matched {
+			return fmt.Errorf("台湾居民身份证号码格式错误（1位字母 + 9位数字）")
+		}
 	case "94":
 		// 证明文件号码，按 proof_doc_type 区分。此处不校验，由 validateAux94 处理
 		return nil
