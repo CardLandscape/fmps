@@ -61,7 +61,7 @@
         </el-form-item>
 
         <el-form-item label="英文姓名" prop="name_en">
-          <el-input v-model="form.name_en" placeholder="请输入英文姓名（必填）" />
+          <el-input v-model="form.name_en" placeholder="请输入英文姓名（必填，例如：ZHANG XIAOMING）" @input="nameEnManuallyEdited = true" />
         </el-form-item>
 
         <el-form-item label="角色" prop="role">
@@ -404,11 +404,18 @@ const showAux2 = computed(() => ['11', '21'].includes(form.id_doc_type))
 
 // Aux1 type options based on primary doc type
 const aux1TypeOptions = computed(() => {
+  const nat = form.nationality
   switch (form.id_doc_type) {
     case '11': return AUX_DOC_TYPES.filter(t => t.code === '02')
     case '21': return AUX_DOC_TYPES.filter(t => t.code === '03')
     case '04': return AUX_DOC_TYPES.filter(t => t.code === '94')
     case '52': return AUX_DOC_TYPES.filter(t => ['95', '98'].includes(t.code))
+    case '31': return AUX_DOC_TYPES.filter(t => t.code === '05')
+    case '02':
+      if (nat === 'HKG') return AUX_DOC_TYPES.filter(t => ['90', '92'].includes(t.code))
+      if (nat === 'MAC') return AUX_DOC_TYPES.filter(t => ['96', '97'].includes(t.code))
+      return AUX_DOC_TYPES.filter(t => ['90', '92', '96', '97'].includes(t.code))
+    case '03': return AUX_DOC_TYPES.filter(t => t.code === '93')
     default: return AUX_DOC_TYPES
   }
 })
@@ -458,13 +465,13 @@ const nationalityOptions = computed(() => {
 })
 
 const formRules = computed(() => {
-  const isCHN = form.nationality === 'CHN'
+  const requireChinese = ['CHN', 'HKG', 'MAC', 'TWN'].includes(form.nationality)
   const mainType = form.id_doc_type
   const needAux1 = ['11', '21', '04'].includes(mainType)
   const needAux2 = ['11', '21'].includes(mainType)
 
   return {
-    name_cn: isCHN ? [{ required: true, message: '中文姓名为必填项（CHN国籍）', trigger: 'blur' }] : [],
+    name_cn: requireChinese ? [{ required: true, message: '中文姓名为必填项（CHN/HKG/MAC/TWN国籍）', trigger: 'blur' }] : [],
     name_en: [{ required: true, message: '英文姓名为必填项', trigger: 'blur' }],
     role: [{ required: true, message: '请选择角色', trigger: 'change' }],
     gender: [{ required: true, message: '请选择性别', trigger: 'change' }],
@@ -480,7 +487,8 @@ const formRules = computed(() => {
     aux2_doc_type: needAux2 ? [{ required: true, message: '辅助证件2类型为必填项', trigger: 'change' }] : [],
     aux2_doc_number: needAux2 ? [{ required: true, message: '辅助证件2号码为必填项', trigger: 'blur' }] : [],
     proof_doc_type: mainType === '04' ? [{ required: true, message: '证明文件类型为必填项', trigger: 'change' }] : [],
-    proof_issue_country: mainType === '04' ? [{ required: true, message: '签发国家为必填项', trigger: 'change' }] : []
+    proof_issue_country: mainType === '04' ? [{ required: true, message: '签发国家为必填项', trigger: 'change' }] : [],
+    school_name: [{ validator: validateSchoolNameRule, trigger: 'blur' }]
   }
 })
 
@@ -507,7 +515,18 @@ watch(
   }
 )
 
-// Auto-set fixed aux1 type for type 11/21/04
+// Track whether name_en was manually edited to avoid overwriting user input
+const nameEnManuallyEdited = ref(false)
+
+// Auto-fill name_en from name_cn (uppercase ASCII) when not manually edited.
+// For purely Chinese names this produces an empty string; the user should manually
+// enter the romanized form (e.g. ZHANG XIAOMING) following the displayed placeholder.
+watch(() => form.name_cn, (newCn) => {
+  if (!nameEnManuallyEdited.value) {
+    const suggested = (newCn || '').replace(/[^\x00-\x7F]/g, '').trim().toUpperCase()
+    form.name_en = suggested
+  }
+})
 watch(() => form.id_doc_type, (newType) => {
   if (newType === '11') {
     form.aux1_doc_type = '02'
@@ -526,6 +545,19 @@ watch(() => form.id_doc_type, (newType) => {
 })
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function validateSchoolNameRule(rule, value, callback) {
+  if (!value || !value.trim()) {
+    callback()
+    return
+  }
+  const keywords = ['小学', '中学', '大学', '学院']
+  if (keywords.some(kw => value.includes(kw))) {
+    callback()
+  } else {
+    callback(new Error('就读学校名称须包含"小学"、"中学"、"大学"或"学院"之一'))
+  }
+}
 
 function getMemberDisplayName(member) {
   return member.name_cn || member.name_en || member.name || '-'
@@ -549,6 +581,18 @@ function onNationalityChange(val) {
   if (form.id_doc_type) {
     const err = validateNationalityDocType(form.id_doc_type, val)
     if (err) ElMessage.warning(err)
+  }
+  // When primary=02, nationality change may narrow aux options
+  if (form.id_doc_type === '02' && form.aux1_doc_type) {
+    const hkgAux = new Set(['90', '92'])
+    const macAux = new Set(['96', '97'])
+    if (val === 'HKG' && !hkgAux.has(form.aux1_doc_type)) {
+      form.aux1_doc_type = ''
+      form.aux1_doc_number = ''
+    } else if (val === 'MAC' && !macAux.has(form.aux1_doc_type)) {
+      form.aux1_doc_type = ''
+      form.aux1_doc_number = ''
+    }
   }
 }
 
@@ -641,6 +685,7 @@ async function fetchMembers() {
 function openDialog(row = null) {
   if (row) {
     editingId.value = row.id
+    nameEnManuallyEdited.value = true // existing record: don't overwrite name_en
     Object.keys(form).forEach(k => {
       form[k] = row[k] ?? ''
     })
@@ -681,6 +726,7 @@ function resetForm() {
   idDocNumberError.value = ''
   aux1DocNumberError.value = ''
   aux2DocNumberError.value = ''
+  nameEnManuallyEdited.value = false
   formRef.value?.resetFields()
 }
 
