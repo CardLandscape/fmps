@@ -332,93 +332,136 @@ export function validateNationalityDocType(docType, nationality) {
   return null
 }
 
+// Generic error returned for all ID number format/content violations
+const ID_NUMBER_INVALID = '证件号码无效'
+
 /**
- * 18位中国居民身份证校验
+ * 18位中国居民身份证格式校验（仅校验格式和校验码，不校验性别/出生日期）
+ * @returns {boolean} true = valid format
  */
 function validateChineseID(id) {
-  if (!id || id.length !== 18) return '身份证号码必须为18位'
+  if (!id || id.length !== 18) return false
   const weights = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2]
   const checkCodes = '10X98765432'
   let sum = 0
   for (let i = 0; i < 17; i++) {
     const c = id.charCodeAt(i)
-    if (c < 48 || c > 57) return '身份证号码前17位必须为数字'
+    if (c < 48 || c > 57) return false
     sum += (c - 48) * weights[i]
   }
   const expected = checkCodes[sum % 11]
   const last = id[17].toUpperCase()
-  if (last !== expected) return `身份证校验码错误（期望 ${expected}，实际 ${last}）`
+  if (last !== expected) return false
   const year = parseInt(id.substring(6, 10))
   const month = parseInt(id.substring(10, 12))
   const day = parseInt(id.substring(12, 14))
-  if (month < 1 || month > 12 || day < 1 || day > 31) return '身份证日期部分无效'
-  if (year < 1900 || year > new Date().getFullYear()) return '身份证年份无效'
-  return null
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false
+  if (year < 1900 || year > new Date().getFullYear()) return false
+  return true
 }
 
 /**
  * 前端证件号码校验
+ * All errors return a generic '证件号码无效' to avoid exposing validation rules.
  * @param {string} docType
  * @param {string} number
  * @param {string} nationality
  * @param {Object} [opts] - extra options
- * @param {string} [opts.birthDate] - birth date for type 93 stop-date check
+ * @param {string} [opts.birthDate] - YYYY-MM-DD, used for birthdate consistency and type-93 stop-date
  * @param {string} [opts.proofDocType] - proof doc type for type 94
- * @returns {string|null} error message or null
+ * @param {string} [opts.gender] - '男' or '女', used for gender consistency check
+ * @returns {string|null} '证件号码无效' or null
  */
 export function validateIDNumber(docType, number, nationality, opts = {}) {
   if (!number) return null
+  const INVALID = ID_NUMBER_INVALID
   switch (docType) {
     case '01':
     case '91':
-      return validateChineseID(number)
+      if (!validateChineseID(number)) return INVALID
+      break
     case '11': {
       let prefix = ''
       if (nationality === 'HKG') prefix = '810000'
       else if (nationality === 'MAC') prefix = '820000'
-      if (prefix && !number.startsWith(prefix)) {
-        return `港澳居民居住证号码必须以 ${prefix} 开头`
-      }
-      return validateChineseID(number)
+      if (prefix && !number.startsWith(prefix)) return INVALID
+      if (!validateChineseID(number)) return INVALID
+      break
     }
     case '21':
-      if (!number.startsWith('830000')) return '台湾居民居住证号码必须以 830000 开头'
-      return validateChineseID(number)
+      if (!number.startsWith('830000')) return INVALID
+      if (!validateChineseID(number)) return INVALID
+      break
     case '31':
-      if (number.length !== 18 || number[0] !== '9') return '外国人永久居留身份证必须以 9 开头且为18位'
-      return validateChineseID(number)
-    case '02': {
-      if (!/^[HM]\d{8}$/.test(number)) return '港澳通行证格式错误（H/M + 8位数字）'
-      if (nationality === 'HKG' && number[0] !== 'H') return '国籍为HKG时，港澳通行证号码必须以H开头'
-      if (nationality === 'MAC' && number[0] !== 'M') return '国籍为MAC时，港澳通行证号码必须以M开头'
+      if (number.length !== 18 || number[0] !== '9') return INVALID
+      if (!validateChineseID(number)) return INVALID
+      break
+    case '02':
+      if (!/^[HM]\d{8}$/.test(number)) return INVALID
+      if (nationality === 'HKG' && number[0] !== 'H') return INVALID
+      if (nationality === 'MAC' && number[0] !== 'M') return INVALID
       return null
-    }
     case '03':
-      return /^\d{8}$/.test(number) ? null : '台湾居民来往大陆通行证必须为8位数字'
+      return /^\d{8}$/.test(number) ? null : INVALID
     case '04':
-      return /^E\d{8}$/.test(number) || /^E[A-Za-z]\d{7}$/.test(number) ? null : '中国护照格式错误（E+8位数字 或 E+1字母+7位数字）'
+      return /^E\d{8}$/.test(number) || /^E[A-Za-z]\d{7}$/.test(number) ? null : INVALID
     case '05':
-      return number.length >= 6 && number.length <= 9 ? null : '外国护照号码长度必须为 6-9 位'
+      return number.length >= 6 && number.length <= 9 ? null : INVALID
     case '52':
-      return /^(HA|MA)\d{7}$/.test(number) ? null : '港澳通行证（非中国籍）格式错误（HA/MA + 7位数字）'
+      return /^(HA|MA)\d{7}$/.test(number) ? null : INVALID
     // 辅助证件类型
     case '90':
     case '92':
     case '95':
-      return validateHKMOID(number)
-    case '93':
-      return validateTaiwan93(number, opts.birthDate || '')
+      return validateHKMOID(number) === null ? null : INVALID
+    case '93': {
+      const fmtErr = validateTaiwan93(number, opts.birthDate || '')
+      if (fmtErr) return INVALID
+      // Second character must be 1 (male) or 2 (female) and must match gender
+      if (number.length >= 2) {
+        const c = number[1]
+        if (c !== '1' && c !== '2') return INVALID
+        if (opts.gender) {
+          const numGender = c === '1' ? '男' : '女'
+          if (opts.gender !== numGender) return INVALID
+        }
+      }
+      return null
+    }
     case '94':
-      return validateAux94Number(number, opts.proofDocType || '')
+      return validateAux94Number(number, opts.proofDocType || '') === null ? null : INVALID
     case '96':
-      return /^1\d{7}$/.test(number) ? null : '澳门居民身份证号码格式错误（8位数字，以1开头）'
+      return /^1\d{7}$/.test(number) ? null : INVALID
     case '97':
-      return /^5\d{7}$/.test(number) ? null : '澳门永久性居民身份证号码格式错误（8位数字，以5开头）'
+      return /^5\d{7}$/.test(number) ? null : INVALID
     case '98':
-      return /^7\d{7}$/.test(number) ? null : '澳门永久性居民身份证（外国籍）号码格式错误（8位数字，以7开头）'
+      return /^7\d{7}$/.test(number) ? null : INVALID
     default:
       return null
   }
+
+  // Gender & birthdate consistency for Chinese-ID-format types (01/91/11/21/31)
+  if (['01', '91', '11', '21', '31'].includes(docType) && number.length === 18) {
+    // Digits 7-14 (index 6-13) = YYYYMMDD birthdate
+    // Parse YYYY-MM-DD directly (avoid timezone issues with new Date())
+    if (opts.birthDate) {
+      const parts = opts.birthDate.split('-')
+      if (parts.length === 3) {
+        const expectedBirth = parts[0] + parts[1].padStart(2, '0') + parts[2].padStart(2, '0')
+        if (number.substring(6, 14) !== expectedBirth) return INVALID
+      }
+    }
+    // 17th digit (index 16): odd = male (男), even = female (女)
+    if (opts.gender) {
+      const ch = number[16]
+      if (ch < '0' || ch > '9') return INVALID
+      const d = parseInt(ch, 10)
+      const idGender = d % 2 !== 0 ? '男' : '女'
+      if (opts.gender !== idGender) return INVALID
+    }
+  }
+
+  return null
 }
 
 /**
