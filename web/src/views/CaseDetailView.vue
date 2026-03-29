@@ -99,7 +99,7 @@
         <!-- Quick deduct buttons -->
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
           <el-button
-            v-for="pts in [1,2,3,5,8,10,15,20]"
+            v-for="pts in quickDeductPresets"
             :key="pts"
             size="small"
             type="danger"
@@ -312,6 +312,9 @@ const deductVisible = ref(false)
 const deductLoading = ref(false)
 const deductForm = reactive({ points: 1, ruleText: '', reason: '' })
 
+// Quick deduct presets (points)
+const quickDeductPresets = [1, 2, 3, 5, 8, 10, 15, 20]
+
 // Preparation items
 const prepItems = computed(() => {
   try {
@@ -408,7 +411,8 @@ async function loadData() {
     penalties.value = res.data.penalty_points ?? []
     // Initialize prep checkboxes
     const items = res.data.case.prep_items
-    const count = items ? JSON.parse(items).length : 0
+    let count = 0
+    try { count = items ? JSON.parse(items).length : 0 } catch { count = 0 }
     prepChecked.value = Array(count).fill(false)
   } catch {
     ElMessage.error('加载案件失败')

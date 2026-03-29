@@ -335,6 +335,7 @@ func (h *CaseHandler) AdvanceStep(c *gin.Context) {
 	var execSteps []string
 	if cas.ExecSteps != "" {
 		if err := json.Unmarshal([]byte(cas.ExecSteps), &execSteps); err != nil {
+			// Malformed JSON — treat as no steps; allow the step counter to advance
 			execSteps = []string{}
 		}
 	}
