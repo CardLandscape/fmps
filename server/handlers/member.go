@@ -18,6 +18,36 @@ type MemberHandler struct {
 	DB *gorm.DB
 }
 
+// taiwanRegionCodes defines Taiwan ID prefix codes with optional stop dates (zero = active).
+var taiwanRegionCodes = map[byte]time.Time{
+	'A': {},           // 台北市 – active
+	'B': {},           // 台中市 – active
+	'C': {},           // 基隆市 – active
+	'D': {},           // 台南市 – active
+	'E': {},           // 高雄市 – active
+	'F': {},           // 新北市 – active
+	'G': {},           // 宜兰县 – active
+	'H': {},           // 桃园市 – active
+	'I': {},           // 嘉义市 – active
+	'J': {},           // 新竹县 – active
+	'K': {},           // 苗栗县 – active
+	'L': time.Date(2010, time.December, 25, 0, 0, 0, 0, time.UTC), // 台中县 – stopped
+	'M': {},           // 南投县 – active
+	'N': {},           // 彰化县 – active
+	'O': {},           // 新竹市 – active
+	'P': {},           // 云林县 – active
+	'Q': {},           // 嘉义县 – active
+	'R': time.Date(2010, time.December, 25, 0, 0, 0, 0, time.UTC), // 台南县 – stopped
+	'S': time.Date(2010, time.December, 25, 0, 0, 0, 0, time.UTC), // 高雄县 – stopped
+	'T': {},           // 屏东县 – active
+	'U': {},           // 花莲县 – active
+	'V': {},           // 台东县 – active
+	'W': {},           // 金门县 – active
+	'X': {},           // 澎湖县 – active
+	'Y': time.Date(1974, time.January, 1, 0, 0, 0, 0, time.UTC),   // 阳明山管理局 – stopped
+	'Z': {},           // 连江县 – active
+}
+
 // validateIDNumber 根据证件类型和国籍校验证件号码
 func validateIDNumber(docType, number, nationality string) error {
 	if number == "" {
@@ -86,7 +116,92 @@ func validateIDNumber(docType, number, nationality string) error {
 		if !matched {
 			return fmt.Errorf("港澳通行证（非中国籍）号码格式错误（HA/MA + 7位数字）")
 		}
+	// 辅助证件类型
+	case "90", "92", "95":
+		// 1-2位字母 + 7位数字；禁止以 W 或 WX 开头
+		if err := validateHKMOID(number); err != nil {
+			return err
+		}
+	case "93":
+		// 1位字母（台湾地区码）+ 9位数字；检查停发日期
+		return nil // 93 的出生日期需要外层传入，此处仅做格式检查
+	case "94":
+		// 证明文件号码，按 proof_doc_type 区分。此处不校验，由 validateAux94 处理
+		return nil
+	case "96":
+		// 8位数字，以1开头
+		matched, _ := regexp.MatchString(`^1\d{7}$`, number)
+		if !matched {
+			return fmt.Errorf("澳门居民身份证号码格式错误（8位数字，以1开头）")
+		}
+	case "97":
+		// 8位数字，以5开头
+		matched, _ := regexp.MatchString(`^5\d{7}$`, number)
+		if !matched {
+			return fmt.Errorf("澳门永久性居民身份证号码格式错误（8位数字，以5开头）")
+		}
+	case "98":
+		// 8位数字，以7开头
+		matched, _ := regexp.MatchString(`^7\d{7}$`, number)
+		if !matched {
+			return fmt.Errorf("澳门永久性居民身份证（外国籍）号码格式错误（8位数字，以7开头）")
+		}
 	}
+	return nil
+}
+
+// validateHKMOID 校验90/92/95类证件：1-2位字母 + 7位数字，禁止以 W 开头（含 WX）
+func validateHKMOID(number string) error {
+	matched, _ := regexp.MatchString(`^[A-Za-z]{1,2}\d{7}$`, number)
+	if !matched {
+		return fmt.Errorf("证件号码格式错误（1-2位字母 + 7位数字）")
+	}
+	if number[0] == 'W' || number[0] == 'w' {
+		return fmt.Errorf("此证件号码为根据补充劳工计划签发给来港就业的工人的身份证号码，该证持有人不具有香港居留权及不合资格申请回乡证")
+	}
+	return nil
+}
+
+// validateTaiwan93 校验93类台湾居民身份证号码，需传入出生日期用于停发代码检查
+func validateTaiwan93(number string, birthDate string) error {
+	if len(number) != 10 {
+		return fmt.Errorf("台湾居民身份证号码必须为10位（1位字母 + 9位数字）")
+	}
+	prefix := strings.ToUpper(number[:1])[0]
+	stopDate, ok := taiwanRegionCodes[prefix]
+	if !ok {
+		return fmt.Errorf("台湾居民身份证号码首位字母无效（%c）", number[0])
+	}
+	// 检查后9位是否为数字
+	digits, _ := regexp.MatchString(`^\d{9}$`, number[1:])
+	if !digits {
+		return fmt.Errorf("台湾居民身份证号码格式错误（1位字母 + 9位数字）")
+	}
+	// 若停发日期非零，且出生日期晚于停发日期则拒绝
+	if !stopDate.IsZero() && birthDate != "" {
+		bd, err := time.Parse("2006-01-02", birthDate)
+		if err == nil && bd.After(stopDate) {
+			return fmt.Errorf("台湾居民身份证地区码 %c 已于 %s 停止赋配，出生日期晚于停发日期不允许使用此代码",
+				prefix, stopDate.Format("2006-01-02"))
+		}
+	}
+	return nil
+}
+
+// validateAux94Number 校验94类证件号码（按 proofDocType 区分）
+func validateAux94Number(number string, proofDocType string) error {
+	if number == "" {
+		return nil
+	}
+	if proofDocType == "94NP" {
+		// H + 12位数字
+		matched, _ := regexp.MatchString(`^H\d{12}$`, number)
+		if !matched {
+			return fmt.Errorf("94NP证件号码格式错误（H + 12位数字）")
+		}
+		return nil
+	}
+	// 其他94类：无强制格式要求
 	return nil
 }
 
@@ -168,9 +283,41 @@ func normalizeMember(m *models.Member) {
 
 // validateMember 验证成员数据合法性
 func validateMember(m *models.Member) error {
+	// 英文姓名必填（任何情况）
+	if strings.TrimSpace(m.NameEn) == "" {
+		return fmt.Errorf("英文姓名（name_en）为必填项")
+	}
 	// 国籍为 CHN 时，中文姓名必填
 	if m.Nationality == "CHN" && strings.TrimSpace(m.NameCn) == "" {
 		return fmt.Errorf("国籍为 CHN 时，中文姓名（name_cn）为必填项")
+	}
+	// 国籍必填
+	if strings.TrimSpace(m.Nationality) == "" {
+		return fmt.Errorf("国籍（nationality）为必填项")
+	}
+	// 出生日期必填
+	if strings.TrimSpace(m.BirthDate) == "" {
+		return fmt.Errorf("出生日期（birth_date）为必填项")
+	}
+	// 主证件类型必填
+	if strings.TrimSpace(m.IdDocType) == "" {
+		return fmt.Errorf("主证件类型（id_doc_type）为必填项")
+	}
+	// 主证件号码必填
+	if strings.TrimSpace(m.IdDocNumber) == "" {
+		return fmt.Errorf("主证件号码（id_doc_number）为必填项")
+	}
+	// 主证件签发日期必填
+	if strings.TrimSpace(m.IdIssueDate) == "" {
+		return fmt.Errorf("主证件签发日期（id_issue_date）为必填项")
+	}
+	// 主证件有效期必填
+	if strings.TrimSpace(m.IdExpiryDate) == "" {
+		return fmt.Errorf("主证件有效期（id_expiry_date）为必填项")
+	}
+	// 主证件签发机关必填
+	if strings.TrimSpace(m.IdIssueAuthority) == "" {
+		return fmt.Errorf("主证件签发机关（id_issue_authority）为必填项")
 	}
 	// 主证件校验
 	if err := validateNationalityDocType(m.IdDocType, m.Nationality); err != nil {
@@ -179,12 +326,125 @@ func validateMember(m *models.Member) error {
 	if err := validateIDNumber(m.IdDocType, m.IdDocNumber, m.Nationality); err != nil {
 		return fmt.Errorf("主证件号码：%s", err)
 	}
-	// 辅助证件校验
-	if err := validateNationalityDocType(m.AuxDocType, m.Nationality); err != nil {
-		return fmt.Errorf("辅助证件：%s", err)
+
+	// 辅助证件约束
+	if err := validateAuxDocs(m); err != nil {
+		return err
 	}
-	if err := validateIDNumber(m.AuxDocType, m.AuxDocNumber, m.Nationality); err != nil {
-		return fmt.Errorf("辅助证件号码：%s", err)
+	return nil
+}
+
+// validateAuxDocs 根据主证件类型校验辅助证件规则
+func validateAuxDocs(m *models.Member) error {
+	mainType := m.IdDocType
+	aux1Type := strings.TrimSpace(m.Aux1DocType)
+	aux1Num := strings.TrimSpace(m.Aux1DocNumber)
+	aux2Type := strings.TrimSpace(m.Aux2DocType)
+	aux2Num := strings.TrimSpace(m.Aux2DocNumber)
+
+	switch mainType {
+	case "01", "91":
+		// 不允许辅助证件
+		if aux1Type != "" || aux2Type != "" {
+			return fmt.Errorf("主证件类型 %s 不允许录入辅助证件", mainType)
+		}
+
+	case "11":
+		// 辅助1必须为02，辅助2必须为90/92/96/97，两者均必填
+		if aux1Type != "02" {
+			return fmt.Errorf("主证件为11时，辅助证件1类型必须为02（港澳居民来往内地通行证）")
+		}
+		if aux1Num == "" {
+			return fmt.Errorf("辅助证件1号码为必填项")
+		}
+		if err := validateIDNumber("02", aux1Num, m.Nationality); err != nil {
+			return fmt.Errorf("辅助证件1号码：%s", err)
+		}
+		allowed2 := map[string]bool{"90": true, "92": true, "96": true, "97": true}
+		if !allowed2[aux2Type] {
+			return fmt.Errorf("主证件为11时，辅助证件2类型只能为90/92/96/97")
+		}
+		if aux2Num == "" {
+			return fmt.Errorf("辅助证件2号码为必填项")
+		}
+		if err := validateIDNumber(aux2Type, aux2Num, m.Nationality); err != nil {
+			return fmt.Errorf("辅助证件2号码：%s", err)
+		}
+
+	case "21":
+		// 辅助1必须为03，辅助2必须为93，两者均必填
+		if aux1Type != "03" {
+			return fmt.Errorf("主证件为21时，辅助证件1类型必须为03（台湾居民来往大陆通行证）")
+		}
+		if aux1Num == "" {
+			return fmt.Errorf("辅助证件1号码为必填项")
+		}
+		if err := validateIDNumber("03", aux1Num, m.Nationality); err != nil {
+			return fmt.Errorf("辅助证件1号码：%s", err)
+		}
+		if aux2Type != "93" {
+			return fmt.Errorf("主证件为21时，辅助证件2类型必须为93（台湾居民身份证）")
+		}
+		if aux2Num == "" {
+			return fmt.Errorf("辅助证件2号码为必填项")
+		}
+		if err := validateTaiwan93(aux2Num, m.BirthDate); err != nil {
+			return fmt.Errorf("辅助证件2号码：%s", err)
+		}
+
+	case "04":
+		// 辅助证件必须为94，proof_doc_type必填，proof_issue_country 必填（94NP时须为CHN）
+		if aux1Type != "94" {
+			return fmt.Errorf("主证件为04时，辅助证件类型必须为94")
+		}
+		if aux1Num == "" {
+			return fmt.Errorf("辅助证件号码为必填项")
+		}
+		proofType := strings.TrimSpace(m.ProofDocType)
+		if proofType == "" {
+			return fmt.Errorf("主证件为04时，证明文件类型（proof_doc_type）为必填项")
+		}
+		validProofTypes := map[string]bool{"94RV": true, "94PV": true, "94PC": true, "94PE": true, "94NP": true}
+		if !validProofTypes[proofType] {
+			return fmt.Errorf("证明文件类型无效（%s）", proofType)
+		}
+		proofCountry := strings.TrimSpace(m.ProofIssueCountry)
+		if proofCountry == "" {
+			return fmt.Errorf("主证件为04时，签发国家（proof_issue_country）为必填项")
+		}
+		if proofType == "94NP" && proofCountry != "CHN" {
+			return fmt.Errorf("证明文件类型为94NP时，签发国家必须为CHN")
+		}
+		if proofType != "94NP" {
+			restricted := map[string]bool{"CHN": true, "HKG": true, "MAC": true, "TWN": true}
+			if restricted[proofCountry] {
+				return fmt.Errorf("签发国家不得为CHN/HKG/MAC/TWN（94NP除外）")
+			}
+		}
+		// 校验94号码
+		if err := validateAux94Number(aux1Num, proofType); err != nil {
+			return fmt.Errorf("辅助证件号码：%s", err)
+		}
+
+	case "05":
+		// 隐藏辅助证件
+		if aux1Type != "" || aux2Type != "" {
+			return fmt.Errorf("主证件类型05时不允许录入辅助证件")
+		}
+
+	case "52":
+		// 辅助类型只能为95或98
+		if aux1Type != "" {
+			allowed1 := map[string]bool{"95": true, "98": true}
+			if !allowed1[aux1Type] {
+				return fmt.Errorf("主证件为52时，辅助证件类型只能为95或98")
+			}
+			if aux1Num != "" {
+				if err := validateIDNumber(aux1Type, aux1Num, m.Nationality); err != nil {
+					return fmt.Errorf("辅助证件1号码：%s", err)
+				}
+			}
+		}
 	}
 	return nil
 }

@@ -22,9 +22,21 @@ type Member struct {
 	IdExpiryDate     string `json:"id_expiry_date"`
 	IdIssueAuthority string `json:"id_issue_authority"`
 
-	// 辅助证件
+	// 辅助证件（旧字段，保留兼容）
 	AuxDocType   string `json:"aux_doc_type"`
 	AuxDocNumber string `json:"aux_doc_number"`
+
+	// 辅助证件1
+	Aux1DocType   string `json:"aux1_doc_type"`
+	Aux1DocNumber string `json:"aux1_doc_number"`
+
+	// 辅助证件2
+	Aux2DocType   string `json:"aux2_doc_type"`
+	Aux2DocNumber string `json:"aux2_doc_number"`
+
+	// 主证件为04时的补充字段
+	ProofDocType      string `json:"proof_doc_type"`       // 证明文件类型（94RV/94PV/94PC/94PE/94NP）
+	ProofIssueCountry string `json:"proof_issue_country"`  // 签发国家（ISO alpha-3）
 
 	// 学籍信息
 	SchoolName        string `json:"school_name"`

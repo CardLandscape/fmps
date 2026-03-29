@@ -358,8 +358,15 @@ function validateChineseID(id) {
 
 /**
  * 前端证件号码校验
+ * @param {string} docType
+ * @param {string} number
+ * @param {string} nationality
+ * @param {Object} [opts] - extra options
+ * @param {string} [opts.birthDate] - birth date for type 93 stop-date check
+ * @param {string} [opts.proofDocType] - proof doc type for type 94
+ * @returns {string|null} error message or null
  */
-export function validateIDNumber(docType, number, nationality) {
+export function validateIDNumber(docType, number, nationality, opts = {}) {
   if (!number) return null
   switch (docType) {
     case '01':
@@ -390,10 +397,114 @@ export function validateIDNumber(docType, number, nationality) {
       return number.length >= 6 && number.length <= 9 ? null : '外国护照号码长度必须为 6-9 位'
     case '52':
       return /^(HA|MA)\d{7}$/.test(number) ? null : '港澳通行证（非中国籍）格式错误（HA/MA + 7位数字）'
+    // 辅助证件类型
+    case '90':
+    case '92':
+    case '95':
+      return validateHKMOID(number)
+    case '93':
+      return validateTaiwan93(number, opts.birthDate || '')
+    case '94':
+      return validateAux94Number(number, opts.proofDocType || '')
+    case '96':
+      return /^1\d{7}$/.test(number) ? null : '澳门居民身份证号码格式错误（8位数字，以1开头）'
+    case '97':
+      return /^5\d{7}$/.test(number) ? null : '澳门永久性居民身份证号码格式错误（8位数字，以5开头）'
+    case '98':
+      return /^7\d{7}$/.test(number) ? null : '澳门永久性居民身份证（外国籍）号码格式错误（8位数字，以7开头）'
     default:
       return null
   }
 }
+
+/**
+ * 校验香港/澳门类身份证（90/92/95）：1-2位字母 + 7位数字，禁止W或WX开头
+ * @returns {string|null}
+ */
+function validateHKMOID(number) {
+  if (!/^[A-Za-z]{1,2}\d{7}$/.test(number)) {
+    return '证件号码格式错误（1-2位字母 + 7位数字）'
+  }
+  if (number[0].toUpperCase() === 'W') {
+    return '此证件号码为根据补充劳工计划签发给来港就业的工人的身份证号码，该证持有人不具有香港居留权及不合资格申请回乡证'
+  }
+  return null
+}
+
+/**
+ * 校验台湾居民身份证（93）：1位字母（台湾地区码）+ 9位数字
+ * @param {string} number
+ * @param {string} birthDate YYYY-MM-DD
+ * @returns {string|null}
+ */
+function validateTaiwan93(number, birthDate) {
+  if (number.length !== 10) {
+    return '台湾居民身份证号码必须为10位（1位字母 + 9位数字）'
+  }
+  const prefix = number[0].toUpperCase()
+  if (!TAIWAN_REGION_CODES.has(prefix)) {
+    return `台湾居民身份证号码首位字母无效（${number[0]}）`
+  }
+  if (!/^\d{9}$/.test(number.substring(1))) {
+    return '台湾居民身份证号码格式错误（1位字母 + 9位数字）'
+  }
+  const stopDateStr = TAIWAN_REGION_STOP_DATES[prefix]
+  if (stopDateStr && birthDate) {
+    const stopDate = new Date(stopDateStr)
+    const bd = new Date(birthDate)
+    if (!isNaN(bd.getTime()) && bd > stopDate) {
+      return `台湾居民身份证地区码 ${prefix} 已于 ${stopDateStr} 停止赋配，出生日期晚于停发日期不允许使用此代码`
+    }
+  }
+  return null
+}
+
+/**
+ * 校验94类辅助证件号码（按 proofDocType）
+ */
+function validateAux94Number(number, proofDocType) {
+  if (!number) return null
+  if (proofDocType === '94NP') {
+    return /^H\d{12}$/.test(number) ? null : '94NP证件号码格式错误（H + 12位数字）'
+  }
+  return null
+}
+
+// 辅助证件类型
+export const AUX_DOC_TYPES = [
+  { code: '02', name: '02-港澳居民来往内地通行证' },
+  { code: '03', name: '03-台湾居民来往大陆通行证' },
+  { code: '90', name: '90-香港永久性居民身份证' },
+  { code: '92', name: '92-香港居民身份证' },
+  { code: '93', name: '93-台湾居民身份证' },
+  { code: '94', name: '94-中国公民定居国外的证明文件' },
+  { code: '95', name: '95-香港永久性居民身份证（外国籍）' },
+  { code: '96', name: '96-澳门居民身份证' },
+  { code: '97', name: '97-澳门永久性居民身份证' },
+  { code: '98', name: '98-澳门永久性居民身份证（外国籍）' }
+]
+
+// 证明文件类型（主证件为04时的辅助证件94的补充字段）
+export const PROOF_DOC_TYPES = [
+  { code: '94RV', name: '94RV-定居签证' },
+  { code: '94PV', name: '94PV-永久居留签证' },
+  { code: '94PC', name: '94PC-永久居留卡' },
+  { code: '94PE', name: '94PE-永久居留电子签证' },
+  { code: '94NP', name: '94NP-国家移民管理局护照查询结果' }
+]
+
+// 台湾地区代码停发日期（零值表示仍在使用）
+const TAIWAN_REGION_STOP_DATES = {
+  L: '2010-12-25', // 台中县
+  R: '2010-12-25', // 台南县
+  S: '2010-12-25', // 高雄县
+  Y: '1974-01-01'  // 阳明山管理局
+}
+// 所有有效台湾地区代码（含已停发）
+const TAIWAN_REGION_CODES = new Set([
+  'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O',
+  'P','Q','R','S','T','U','V','W','X','Y','Z'
+])
 
 // 年级选项
 export const GRADES = [
