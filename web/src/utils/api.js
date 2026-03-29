@@ -33,6 +33,8 @@ export const getMembers = () => api.get('/members')
 export const createMember = data => api.post('/members', data)
 export const updateMember = (id, data) => api.put(`/members/${id}`, data)
 export const deleteMember = id => api.delete(`/members/${id}`)
+export const deleteMemberWithAuth = (id, authPassword) =>
+  api.post(`/members/${id}/delete`, { auth_password: authPassword })
 
 export const getRules = () => api.get('/rules')
 export const createRule = data => api.post('/rules', data)

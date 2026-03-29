@@ -13,8 +13,15 @@
     <el-table :data="cases" v-loading="loading" stripe style="width: 100%">
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="title" label="标题" />
-      <el-table-column label="成员" width="120">
-        <template #default="{ row }">{{ row.member?.name ?? '-' }}</template>
+      <el-table-column label="家长" width="120">
+        <template #default="{ row }">
+          {{ getMemberName(row.parent_member) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="小孩" width="120">
+        <template #default="{ row }">
+          {{ getMemberName(row.child_member) }}
+        </template>
       </el-table-column>
       <el-table-column prop="status" label="状态" width="100">
         <template #default="{ row }">
@@ -45,12 +52,22 @@
       <el-form-item label="标题" prop="title">
         <el-input v-model="form.title" placeholder="案件标题" />
       </el-form-item>
-      <el-form-item label="成员" prop="member_id">
-        <el-select v-model="form.member_id" placeholder="请选择成员" style="width:100%">
+      <el-form-item label="家长" prop="parent_member_id">
+        <el-select v-model="form.parent_member_id" placeholder="请选择家长成员" style="width:100%">
           <el-option
-            v-for="m in members"
+            v-for="m in parentMembers"
             :key="m.id"
-            :label="m.name"
+            :label="getMemberName(m)"
+            :value="m.id"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="小孩" prop="child_member_id">
+        <el-select v-model="form.child_member_id" placeholder="请选择小孩成员" style="width:100%">
+          <el-option
+            v-for="m in childMembers"
+            :key="m.id"
+            :label="getMemberName(m)"
             :value="m.id"
           />
         </el-select>
@@ -59,14 +76,29 @@
         <el-input v-model="form.description" type="textarea" :rows="2" placeholder="案件描述（可选）" />
       </el-form-item>
       <el-form-item label="惩罚过程">
-        <el-input
-          v-model="form.punishment_process"
-          type="textarea"
-          :rows="8"
-          placeholder="每行一条步骤，格式：开始时间|持续分钟|惩罚内容|要求1~5（可空）|扣分规则|扣分值"
-        />
-        <div style="font-size:12px;color:#909399;margin-top:4px">
-          格式：开始时间|持续分钟|惩罚内容|要求1~5（可空）|扣分规则|扣分值
+        <div style="width:100%">
+          <div style="display:flex;gap:8px;margin-bottom:6px">
+            <el-button size="small" @click="triggerTxtImport">
+              <el-icon><Upload /></el-icon>
+              从TXT导入
+            </el-button>
+            <input
+              ref="txtFileInput"
+              type="file"
+              accept=".txt"
+              style="display:none"
+              @change="handleTxtImport"
+            />
+          </div>
+          <el-input
+            v-model="form.punishment_process"
+            type="textarea"
+            :rows="8"
+            placeholder="每行一条步骤，格式：开始时间|持续分钟|惩罚内容|要求1~5（可空）|扣分规则|扣分值"
+          />
+          <div style="font-size:12px;color:#909399;margin-top:4px">
+            格式：开始时间|持续分钟|惩罚内容|要求1~5（可空）|扣分规则|扣分值
+          </div>
         </div>
       </el-form-item>
     </el-form>
@@ -78,9 +110,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Upload } from '@element-plus/icons-vue'
 import { getCases, createCase, updateCase, deleteCase, getMembers } from '@/utils/api'
 
 const router = useRouter()
@@ -91,18 +124,49 @@ const members = ref([])
 const dialogVisible = ref(false)
 const editingId = ref(null)
 const formRef = ref(null)
+const txtFileInput = ref(null)
 
 const defaultForm = () => ({
   title: '',
-  member_id: null,
+  parent_member_id: null,
+  child_member_id: null,
   description: '',
   punishment_process: ''
 })
 const form = reactive(defaultForm())
 
-const formRules = {
+// Filtered member lists for dropdowns
+const parentMembers = computed(() =>
+  members.value.filter(m => m.role === 'parent' || m.role === 'adult')
+)
+const childMembers = computed(() =>
+  members.value.filter(m => m.role === 'child')
+)
+
+const formRules = computed(() => ({
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
-  member_id: [{ required: true, message: '请选择成员', trigger: 'change' }]
+  parent_member_id: [{ required: true, message: '请选择家长成员', trigger: 'change' }],
+  child_member_id: [
+    { required: true, message: '请选择小孩成员', trigger: 'change' },
+    {
+      validator: (rule, value, callback) => {
+        if (value && form.parent_member_id) {
+          // Check same person (by member ID - server will also check by name+birthdate)
+          if (value === form.parent_member_id) {
+            callback(new Error('家长和小孩不能是同一条记录'))
+            return
+          }
+        }
+        callback()
+      },
+      trigger: 'change'
+    }
+  ]
+}))
+
+function getMemberName(m) {
+  if (!m) return '-'
+  return m.name_cn || m.name_en || m.name || '-'
 }
 
 function statusLabel(s) {
@@ -134,7 +198,8 @@ function openDialog(row = null) {
   if (row) {
     editingId.value = row.id
     form.title = row.title ?? ''
-    form.member_id = row.member_id ?? null
+    form.parent_member_id = row.parent_member_id || null
+    form.child_member_id = row.child_member_id || null
     form.description = row.description ?? ''
     form.punishment_process = row.punishment_process ?? ''
   } else {
@@ -146,6 +211,26 @@ function openDialog(row = null) {
 function resetForm() {
   formRef.value?.resetFields()
   editingId.value = null
+}
+
+function triggerTxtImport() {
+  txtFileInput.value?.click()
+}
+
+function handleTxtImport(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    form.punishment_process = e.target?.result ?? ''
+    ElMessage.success('已成功导入惩罚过程文本')
+  }
+  reader.onerror = () => {
+    ElMessage.error('文件读取失败')
+  }
+  reader.readAsText(file, 'utf-8')
+  // Reset input so same file can be selected again
+  event.target.value = ''
 }
 
 async function handleSave() {

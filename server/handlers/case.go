@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -68,7 +69,7 @@ func ParsePunishmentProcess(text string) []PunishmentStep {
 
 func (h *CaseHandler) List(c *gin.Context) {
 	var cases []models.Case
-	if err := h.DB.Preload("Member").Find(&cases).Error; err != nil {
+	if err := h.DB.Preload("Member").Preload("ParentMember").Preload("ChildMember").Find(&cases).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "查询失败"})
 		return
 	}
@@ -83,7 +84,7 @@ func (h *CaseHandler) Get(c *gin.Context) {
 	}
 
 	var cas models.Case
-	if err := h.DB.Preload("Member").First(&cas, id).Error; err != nil {
+	if err := h.DB.Preload("Member").Preload("ParentMember").Preload("ChildMember").First(&cas, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "案件不存在"})
 		return
 	}
@@ -100,18 +101,73 @@ func (h *CaseHandler) Get(c *gin.Context) {
 	})
 }
 
+// validateCaseMembers checks that parent and child are set, exist, have the correct roles,
+// and do not represent the same natural person (matched by name_cn + birth_date).
+func (h *CaseHandler) validateCaseMembers(parentID, childID uint) error {
+	if parentID == 0 {
+		return fmt.Errorf("请选择家长成员")
+	}
+	if childID == 0 {
+		return fmt.Errorf("请选择小孩成员")
+	}
+	if parentID == childID {
+		return fmt.Errorf("案件中的家长和小孩不能是同一条记录")
+	}
+
+	var parent models.Member
+	if err := h.DB.First(&parent, parentID).Error; err != nil {
+		return fmt.Errorf("家长成员不存在")
+	}
+	if parent.Role != "parent" && parent.Role != "adult" {
+		return fmt.Errorf("所选家长成员的类型不是「家长」")
+	}
+
+	var child models.Member
+	if err := h.DB.First(&child, childID).Error; err != nil {
+		return fmt.Errorf("小孩成员不存在")
+	}
+	if child.Role != "child" {
+		return fmt.Errorf("所选小孩成员的类型不是「小孩」")
+	}
+
+	// Check they are not the same natural person (same name_cn + birth_date)
+	pName := strings.TrimSpace(parent.NameCn)
+	cName := strings.TrimSpace(child.NameCn)
+	pBirth := strings.TrimSpace(parent.BirthDate)
+	cBirth := strings.TrimSpace(child.BirthDate)
+	if pName != "" && cName != "" && pBirth != "" && cBirth != "" {
+		if pName == cName && pBirth == cBirth {
+			return fmt.Errorf("案件中的家长和小孩不能是同一人")
+		}
+	}
+
+	return nil
+}
+
 func (h *CaseHandler) Create(c *gin.Context) {
 	var cas models.Case
 	if err := c.ShouldBindJSON(&cas); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "请求格式错误"})
 		return
 	}
+
+	// Validate parent and child members
+	if err := h.validateCaseMembers(cas.ParentMemberID, cas.ChildMemberID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	// Set legacy MemberID to ChildMemberID for backward compat
+	if cas.MemberID == 0 && cas.ChildMemberID > 0 {
+		cas.MemberID = cas.ChildMemberID
+	}
+
 	cas.Status = "pending"
 	if err := h.DB.Create(&cas).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "创建失败"})
 		return
 	}
-	h.DB.Preload("Member").First(&cas, cas.ID)
+	h.DB.Preload("Member").Preload("ParentMember").Preload("ChildMember").First(&cas, cas.ID)
 	c.JSON(http.StatusCreated, cas)
 }
 
@@ -134,11 +190,23 @@ func (h *CaseHandler) Update(c *gin.Context) {
 	}
 	cas.ID = uint(id)
 
+	// Validate parent and child members if both are set
+	if cas.ParentMemberID > 0 && cas.ChildMemberID > 0 {
+		if err := h.validateCaseMembers(cas.ParentMemberID, cas.ChildMemberID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+			return
+		}
+		// Keep legacy MemberID in sync
+		if cas.MemberID == 0 {
+			cas.MemberID = cas.ChildMemberID
+		}
+	}
+
 	if err := h.DB.Save(&cas).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "更新失败"})
 		return
 	}
-	h.DB.Preload("Member").First(&cas, cas.ID)
+	h.DB.Preload("Member").Preload("ParentMember").Preload("ChildMember").First(&cas, cas.ID)
 	c.JSON(http.StatusOK, cas)
 }
 

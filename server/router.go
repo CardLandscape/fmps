@@ -77,6 +77,7 @@ func SetupRouter(db *gorm.DB, cfg Config) *gin.Engine {
 		api.GET("/members", memberHandler.List)
 		api.POST("/members", memberHandler.Create)
 		api.PUT("/members/:id", memberHandler.Update)
+		api.POST("/members/:id/delete", memberHandler.DeleteWithAuth)
 		api.DELETE("/members/:id", memberHandler.Delete)
 
 		api.GET("/rules", ruleHandler.List)
