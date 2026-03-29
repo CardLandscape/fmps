@@ -101,6 +101,7 @@ func SetupRouter(db *gorm.DB, cfg Config) *gin.Engine {
 		api.DELETE("/cases/:id", caseHandler.Delete)
 		api.POST("/cases/:id/start", caseHandler.StartPunishment)
 		api.POST("/cases/:id/complete", caseHandler.CompletePunishment)
+		api.POST("/cases/:id/step/advance", caseHandler.AdvanceStep)
 		api.POST("/cases/:id/penalty", penaltyHandler.AddPenalty)
 
 		api.POST("/penalty/:id/revoke", penaltyHandler.RevokePenalty)

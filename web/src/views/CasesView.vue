@@ -13,6 +13,12 @@
     <el-table :data="cases" v-loading="loading" stripe style="width: 100%">
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="title" label="标题" />
+      <el-table-column label="级别" width="80">
+        <template #default="{ row }">
+          <el-tag v-if="row.punishment_level" size="small" type="warning">{{ row.punishment_level }}级</el-tag>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
       <el-table-column label="家长" width="120">
         <template #default="{ row }">
           {{ getMemberName(row.parent_member) }}
@@ -26,6 +32,12 @@
       <el-table-column prop="status" label="状态" width="100">
         <template #default="{ row }">
           <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="最终成绩" width="110">
+        <template #default="{ row }">
+          <el-tag v-if="row.final_grade" :type="gradeTagType(row.final_grade)" size="small">{{ row.final_grade }}</el-tag>
+          <span v-else>-</span>
         </template>
       </el-table-column>
       <el-table-column prop="created_at" label="创建时间" width="160">
@@ -45,7 +57,7 @@
   <el-dialog
     v-model="dialogVisible"
     :title="editingId ? '编辑案件' : '新建案件'"
-    width="600px"
+    width="620px"
     @closed="resetForm"
   >
     <el-form ref="formRef" :model="form" :rules="formRules" label-width="100px">
@@ -75,9 +87,17 @@
       <el-form-item label="描述">
         <el-input v-model="form.description" type="textarea" :rows="2" placeholder="案件描述（可选）" />
       </el-form-item>
-      <el-form-item label="惩罚过程">
+      <el-form-item label="惩罚级别" prop="punishment_level">
+        <el-select v-model="form.punishment_level" placeholder="请选择惩罚级别" style="width:100%">
+          <el-option label="A 级（最轻）" value="A" />
+          <el-option label="B 级" value="B" />
+          <el-option label="C 级" value="C" />
+          <el-option label="D 级（最重）" value="D" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="惩罚流程">
         <div style="width:100%">
-          <div style="display:flex;gap:8px;margin-bottom:6px">
+          <div style="display:flex;gap:8px;margin-bottom:6px;align-items:center">
             <el-button size="small" @click="triggerTxtImport">
               <el-icon><Upload /></el-icon>
               从TXT导入
@@ -89,15 +109,29 @@
               style="display:none"
               @change="handleTxtImport"
             />
+            <span v-if="form.prep_items.length || form.exec_steps.length" style="color:#67c23a;font-size:13px">
+              已导入：{{ form.prep_items.length }} 项准备物品，{{ form.exec_steps.length }} 个执行步骤
+            </span>
           </div>
-          <el-input
-            v-model="form.punishment_process"
-            type="textarea"
-            :rows="8"
-            placeholder="每行一条步骤，格式：开始时间|持续分钟|惩罚内容|要求1~5（可空）|扣分规则|扣分值"
-          />
-          <div style="font-size:12px;color:#909399;margin-top:4px">
-            格式：开始时间|持续分钟|惩罚内容|要求1~5（可空）|扣分规则|扣分值
+          <div style="font-size:12px;color:#909399;margin-bottom:8px">
+            TXT 格式：用 <code>[准备物品]</code> 和 <code>[执行步骤]</code> 分隔区块，每行一条（空行忽略）
+          </div>
+          <!-- Preview prep items -->
+          <div v-if="form.prep_items.length" style="margin-bottom:8px">
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px">准备物品（{{ form.prep_items.length }}）：</div>
+            <el-tag
+              v-for="(item, i) in form.prep_items"
+              :key="i"
+              size="small"
+              style="margin:2px"
+            >{{ item }}</el-tag>
+          </div>
+          <!-- Preview exec steps -->
+          <div v-if="form.exec_steps.length">
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px">执行步骤（{{ form.exec_steps.length }}）：</div>
+            <ol style="margin:0;padding-left:20px;font-size:13px;color:#606266">
+              <li v-for="(step, i) in form.exec_steps" :key="i" style="margin-bottom:2px">{{ step }}</li>
+            </ol>
           </div>
         </div>
       </el-form-item>
@@ -131,7 +165,9 @@ const defaultForm = () => ({
   parent_member_id: null,
   child_member_id: null,
   description: '',
-  punishment_process: ''
+  punishment_level: '',
+  prep_items: [],
+  exec_steps: []
 })
 const form = reactive(defaultForm())
 
@@ -151,7 +187,6 @@ const formRules = computed(() => ({
     {
       validator: (rule, value, callback) => {
         if (value && form.parent_member_id) {
-          // Check same person (by member ID - server will also check by name+birthdate)
           if (value === form.parent_member_id) {
             callback(new Error('家长和小孩不能是同一条记录'))
             return
@@ -175,6 +210,11 @@ function statusLabel(s) {
 function statusTagType(s) {
   return { pending: 'info', active: 'success', completed: '' }[s] ?? 'info'
 }
+function gradeTagType(g) {
+  if (g === '满分' || g === '优') return 'success'
+  if (g === '良' || g === '达标') return 'warning'
+  return 'danger'
+}
 function formatDate(d) {
   if (!d) return '-'
   return new Date(d).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
@@ -193,6 +233,22 @@ async function load() {
   }
 }
 
+function parseTxtSections(text) {
+  const lines = text.replace(/\r\n/g, '\n').split('\n')
+  const prepItems = []
+  const execSteps = []
+  let section = null
+  for (const rawLine of lines) {
+    const line = rawLine.trim()
+    if (line === '[准备物品]') { section = 'prep'; continue }
+    if (line === '[执行步骤]') { section = 'exec'; continue }
+    if (!line) continue
+    if (section === 'prep') prepItems.push(line)
+    else if (section === 'exec') execSteps.push(line)
+  }
+  return { prepItems, execSteps }
+}
+
 function openDialog(row = null) {
   Object.assign(form, defaultForm())
   if (row) {
@@ -201,7 +257,9 @@ function openDialog(row = null) {
     form.parent_member_id = row.parent_member_id || null
     form.child_member_id = row.child_member_id || null
     form.description = row.description ?? ''
-    form.punishment_process = row.punishment_process ?? ''
+    form.punishment_level = row.punishment_level ?? ''
+    try { form.prep_items = row.prep_items ? JSON.parse(row.prep_items) : [] } catch { form.prep_items = [] }
+    try { form.exec_steps = row.exec_steps ? JSON.parse(row.exec_steps) : [] } catch { form.exec_steps = [] }
   } else {
     editingId.value = null
   }
@@ -222,14 +280,19 @@ function handleTxtImport(event) {
   if (!file) return
   const reader = new FileReader()
   reader.onload = (e) => {
-    form.punishment_process = e.target?.result ?? ''
-    ElMessage.success('已成功导入惩罚过程文本')
+    const text = e.target?.result ?? ''
+    const { prepItems, execSteps } = parseTxtSections(text)
+    // Additive import: append to existing items (dedup by value)
+    const newPrep = [...new Set([...form.prep_items, ...prepItems])]
+    const newExec = [...form.exec_steps, ...execSteps]
+    form.prep_items = newPrep
+    form.exec_steps = newExec
+    ElMessage.success(`已导入 ${prepItems.length} 项准备物品，${execSteps.length} 个执行步骤`)
   }
   reader.onerror = () => {
     ElMessage.error('文件读取失败')
   }
   reader.readAsText(file, 'utf-8')
-  // Reset input so same file can be selected again
   event.target.value = ''
 }
 
@@ -239,11 +302,20 @@ async function handleSave() {
   if (!valid) return
   saving.value = true
   try {
+    const payload = {
+      title: form.title,
+      parent_member_id: form.parent_member_id,
+      child_member_id: form.child_member_id,
+      description: form.description,
+      punishment_level: form.punishment_level,
+      prep_items: JSON.stringify(form.prep_items),
+      exec_steps: JSON.stringify(form.exec_steps)
+    }
     if (editingId.value) {
-      await updateCase(editingId.value, { ...form })
+      await updateCase(editingId.value, payload)
       ElMessage.success('更新成功')
     } else {
-      await createCase({ ...form })
+      await createCase(payload)
       ElMessage.success('创建成功')
     }
     dialogVisible.value = false

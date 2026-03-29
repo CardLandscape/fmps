@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -242,11 +243,47 @@ func (h *CaseHandler) StartPunishment(c *gin.Context) {
 	cas.Status = "active"
 	cas.StartTime = &now
 
+	// If prep items exist, start in prep phase (-1); otherwise go directly to step 0
+	if strings.TrimSpace(cas.PrepItems) == "" || cas.PrepItems == "[]" {
+		cas.CurrentStep = 0
+	} else {
+		cas.CurrentStep = -1
+	}
+
 	if err := h.DB.Save(&cas).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "更新失败"})
 		return
 	}
 	c.JSON(http.StatusOK, cas)
+}
+
+// computeGrade 根据总扣分计算成绩
+func computeGrade(totalDeducted int) string {
+	if totalDeducted == 0 {
+		return "满分"
+	} else if totalDeducted <= 5 {
+		return "优"
+	} else if totalDeducted <= 15 {
+		return "良"
+	} else if totalDeducted <= 19 {
+		return "达标"
+	} else if totalDeducted <= 39 {
+		return "不达标"
+	}
+	return "态度不端正"
+}
+
+// calcTotalDeducted 计算案件的总扣分数
+func (h *CaseHandler) calcTotalDeducted(caseID uint) int {
+	var penalties []models.PenaltyPoint
+	h.DB.Where("case_id = ? AND revoked = ?", caseID, false).Find(&penalties)
+	total := 0
+	for _, p := range penalties {
+		if p.ScoreDelta < 0 {
+			total += -p.ScoreDelta
+		}
+	}
+	return total
 }
 
 // CompletePunishment 完成惩罚
@@ -263,7 +300,58 @@ func (h *CaseHandler) CompletePunishment(c *gin.Context) {
 		return
 	}
 
+	totalDeducted := h.calcTotalDeducted(uint(id))
+	cas.FinalGrade = computeGrade(totalDeducted)
 	cas.Status = "completed"
+	if err := h.DB.Save(&cas).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "更新失败"})
+		return
+	}
+	c.JSON(http.StatusOK, cas)
+}
+
+// AdvanceStep 推进执行步骤
+// 当 current_step = -1 时（准备阶段完成），推进到步骤0
+// 当 current_step >= 0 时，推进到下一步；若已是最后一步则自动完成并计算成绩
+func (h *CaseHandler) AdvanceStep(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "无效的ID"})
+		return
+	}
+
+	var cas models.Case
+	if err := h.DB.First(&cas, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "案件不存在"})
+		return
+	}
+
+	if cas.Status != "active" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "案件未在执行中"})
+		return
+	}
+
+	// Parse exec steps to determine total count
+	var execSteps []string
+	if cas.ExecSteps != "" {
+		if err := json.Unmarshal([]byte(cas.ExecSteps), &execSteps); err != nil {
+			// Malformed JSON — treat as no steps; allow the step counter to advance
+			execSteps = []string{}
+		}
+	}
+
+	nextStep := cas.CurrentStep + 1
+
+	if len(execSteps) > 0 && nextStep >= len(execSteps) {
+		// All steps completed — compute grade and mark as completed
+		totalDeducted := h.calcTotalDeducted(uint(id))
+		cas.FinalGrade = computeGrade(totalDeducted)
+		cas.Status = "completed"
+		cas.CurrentStep = nextStep
+	} else {
+		cas.CurrentStep = nextStep
+	}
+
 	if err := h.DB.Save(&cas).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "更新失败"})
 		return
