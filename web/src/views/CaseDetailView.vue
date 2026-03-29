@@ -26,10 +26,11 @@
       </template>
       <el-descriptions :column="2" border>
         <el-descriptions-item label="标题">{{ caseData.title }}</el-descriptions-item>
-        <el-descriptions-item label="成员">{{ caseData.member?.name ?? '-' }}</el-descriptions-item>
         <el-descriptions-item label="状态">
           <el-tag :type="statusTagType(caseData.status)">{{ statusLabel(caseData.status) }}</el-tag>
         </el-descriptions-item>
+        <el-descriptions-item label="家长">{{ getMemberName(caseData.parent_member) }}</el-descriptions-item>
+        <el-descriptions-item label="小孩">{{ getMemberName(caseData.child_member) }}</el-descriptions-item>
         <el-descriptions-item label="开始时间">{{ caseData.start_time ? formatDate(caseData.start_time) : '未开始' }}</el-descriptions-item>
         <el-descriptions-item label="描述" :span="2">{{ caseData.description || '-' }}</el-descriptions-item>
       </el-descriptions>
@@ -206,6 +207,11 @@ const totalScore = computed(() =>
 
 function statusLabel(s) {
   return { pending: '待执行', active: '执行中', completed: '已完成' }[s] ?? s
+}
+
+function getMemberName(m) {
+  if (!m) return '-'
+  return m.name_cn || m.name_en || m.name || '-'
 }
 function statusTagType(s) {
   return { pending: 'info', active: 'success', completed: '' }[s] ?? 'info'

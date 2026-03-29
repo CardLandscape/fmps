@@ -587,16 +587,53 @@ func validateAuxDocs(m *models.Member) error {
 	return nil
 }
 
+// getAuthPassword retrieves the authorization password from Settings.
+func (h *MemberHandler) getAuthPassword() (string, error) {
+	var setting models.Setting
+	if err := h.DB.Where("key = ?", "authorization_password").First(&setting).Error; err != nil {
+		return "", err
+	}
+	return setting.Value, nil
+}
+
+// checkAuthPassword validates the provided password against the stored authorization password.
+func (h *MemberHandler) checkAuthPassword(provided string) error {
+	stored, err := h.getAuthPassword()
+	if err != nil {
+		return fmt.Errorf("系统配置错误，无法验证授权密码")
+	}
+	if provided != stored {
+		return fmt.Errorf("授权密码错误")
+	}
+	return nil
+}
+
+// countActiveParents returns the number of parent-role members in the database.
+func (h *MemberHandler) countActiveParents(excludeID uint) (int64, error) {
+	var count int64
+	q := h.DB.Model(&models.Member{}).Where("role = ?", "parent")
+	if excludeID > 0 {
+		q = q.Where("id != ?", excludeID)
+	}
+	if err := q.Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 func (h *MemberHandler) List(c *gin.Context) {
 	var members []models.Member
 	if err := h.DB.Find(&members).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "查询失败"})
 		return
 	}
-	// 兼容旧数据：name_cn 为空时从 name 回填
+	// 兼容旧数据：name_cn 为空时从 name 回填；role="adult" 视为 "parent"
 	for i := range members {
 		if members[i].NameCn == "" && members[i].Name != "" {
 			members[i].NameCn = members[i].Name
+		}
+		if members[i].Role == "adult" {
+			members[i].Role = "parent"
 		}
 	}
 	c.JSON(http.StatusOK, members)
@@ -608,6 +645,37 @@ func (h *MemberHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "请求格式错误"})
 		return
 	}
+
+	// Normalize legacy "adult" → "parent"
+	if member.Role == "adult" {
+		member.Role = "parent"
+	}
+	// Role must be "parent" or "child"
+	if member.Role != "parent" && member.Role != "child" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "成员类型只能为「家长」或「小孩」"})
+		return
+	}
+
+	// If creating a parent record, check if a child record with same name+birthdate already exists.
+	// If so, require authorization password.
+	if member.Role == "parent" {
+		nameCn := strings.TrimSpace(member.NameCn)
+		birthDate := strings.TrimSpace(member.BirthDate)
+		if nameCn != "" && birthDate != "" {
+			var existingCount int64
+			h.DB.Model(&models.Member{}).
+				Where("role = ? AND name_cn = ? AND birth_date = ?",
+					"child", nameCn, birthDate).
+				Count(&existingCount)
+			if existingCount > 0 {
+				if err := h.checkAuthPassword(member.AuthPassword); err != nil {
+					c.JSON(http.StatusForbidden, gin.H{"message": "该成员已有「小孩」记录，添加「家长」记录需要授权密码"})
+					return
+				}
+			}
+		}
+	}
+
 	normalizeMember(&member)
 	if err := validateMember(&member); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
@@ -627,28 +695,115 @@ func (h *MemberHandler) Update(c *gin.Context) {
 		return
 	}
 
+	var existing models.Member
+	if err := h.DB.First(&existing, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "成员不存在"})
+		return
+	}
+
+	var incoming models.Member
+	if err := c.ShouldBindJSON(&incoming); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "请求格式错误"})
+		return
+	}
+
+	// Require authorization password for editing any member
+	if err := h.checkAuthPassword(incoming.AuthPassword); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"message": "编辑成员资料需要授权密码"})
+		return
+	}
+
+	// Normalize legacy "adult" → "parent"
+	if incoming.Role == "adult" {
+		incoming.Role = "parent"
+	}
+	existingRole := existing.Role
+	if existingRole == "adult" {
+		existingRole = "parent"
+	}
+
+	// Prevent role change after creation
+	if incoming.Role != "" && incoming.Role != existingRole {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "成员类型一经确定不可更改"})
+		return
+	}
+	// Keep original role if not provided
+	if incoming.Role == "" {
+		incoming.Role = existingRole
+	}
+
+	incoming.ID = uint(id)
+	normalizeMember(&incoming)
+	if err := validateMember(&incoming); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	if err := h.DB.Save(&incoming).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "更新失败"})
+		return
+	}
+	c.JSON(http.StatusOK, incoming)
+}
+
+// DeleteWithAuth handles member deletion with authorization password in request body.
+// Used by the frontend POST /api/members/:id/delete endpoint.
+func (h *MemberHandler) DeleteWithAuth(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "无效的ID"})
+		return
+	}
+
+	var req struct {
+		AuthPassword string `json:"auth_password"`
+	}
+	// Body is optional (empty body means no auth_password provided).
+	// Only return an error for genuinely malformed JSON, not for an empty body.
+	if err := c.ShouldBindJSON(&req); err != nil {
+		// io.EOF and io.ErrUnexpectedEOF mean empty body – treat as missing password
+		errMsg := err.Error()
+		if errMsg != "EOF" && errMsg != "unexpected EOF" {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "请求格式错误"})
+			return
+		}
+	}
+
 	var member models.Member
 	if err := h.DB.First(&member, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "成员不存在"})
 		return
 	}
 
-	if err := c.ShouldBindJSON(&member); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "请求格式错误"})
-		return
-	}
-	member.ID = uint(id)
-	normalizeMember(&member)
-	if err := validateMember(&member); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+	// Require authorization password for both roles
+	if err := h.checkAuthPassword(req.AuthPassword); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"message": "删除成员需要授权密码"})
 		return
 	}
 
-	if err := h.DB.Save(&member).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "更新失败"})
+	role := member.Role
+	if role == "adult" {
+		role = "parent"
+	}
+
+	// For parent role: ensure at least one other parent will remain
+	if role == "parent" {
+		remaining, err := h.countActiveParents(uint(id))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "查询失败"})
+			return
+		}
+		if remaining < 1 {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "系统中必须至少保留一名有效的家长，无法删除最后一名家长"})
+			return
+		}
+	}
+
+	if err := h.DB.Delete(&models.Member{}, id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "删除失败"})
 		return
 	}
-	c.JSON(http.StatusOK, member)
+	c.JSON(http.StatusOK, gin.H{"message": "删除成功"})
 }
 
 func (h *MemberHandler) Delete(c *gin.Context) {

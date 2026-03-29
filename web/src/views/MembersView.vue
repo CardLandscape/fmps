@@ -17,7 +17,7 @@
       <el-table-column prop="role" label="角色" width="80">
         <template #default="{ row }">
           <el-tag :type="row.role === 'child' ? 'warning' : 'success'">
-            {{ row.role === 'child' ? '孩子' : '成人' }}
+            {{ row.role === 'child' ? '小孩' : '家长' }}
           </el-tag>
         </template>
       </el-table-column>
@@ -37,7 +37,7 @@
       </el-table-column>
       <el-table-column label="操作" width="160" fixed="right">
         <template #default="{ row }">
-          <el-button size="small" type="primary" plain @click="openDialog(row)">编辑</el-button>
+          <el-button size="small" type="primary" plain @click="openEditWithAuth(row)">编辑</el-button>
           <el-button size="small" type="danger" plain @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -65,10 +65,11 @@
         </el-form-item>
 
         <el-form-item label="角色" prop="role">
-          <el-select v-model="form.role" placeholder="请选择角色" style="width: 100%">
-            <el-option label="孩子" value="child" />
-            <el-option label="成人" value="adult" />
+          <el-select v-model="form.role" :disabled="!!editingId" placeholder="请选择角色" style="width: 100%">
+            <el-option label="小孩" value="child" />
+            <el-option label="家长" value="parent" />
           </el-select>
+          <div v-if="editingId" style="font-size:12px;color:#909399;margin-top:2px">成员类型一经确定不可更改</div>
         </el-form-item>
 
         <el-form-item label="性别" prop="gender">
@@ -328,13 +329,32 @@
       <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
     </template>
   </el-dialog>
+
+  <!-- 授权密码对话框（编辑/删除前验证） -->
+  <el-dialog v-model="authDialogVisible" title="需要授权密码" width="360px" :close-on-click-modal="false">
+    <el-form @submit.prevent>
+      <el-form-item label="授权密码" label-width="80px">
+        <el-input
+          v-model="authPassword"
+          type="password"
+          show-password
+          placeholder="请输入授权密码"
+          @keyup.enter="confirmAuthAction"
+        />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="authDialogVisible = false">取 消</el-button>
+      <el-button type="primary" :loading="authLoading" @click="confirmAuthAction">确 定</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
 import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { getMembers, createMember, updateMember, deleteMember } from '@/utils/api'
+import { getMembers, createMember, updateMember, deleteMemberWithAuth } from '@/utils/api'
 import {
   COUNTRIES,
   ID_DOC_TYPES,
@@ -355,6 +375,12 @@ const saving = ref(false)
 const dialogVisible = ref(false)
 const editingId = ref(null)
 const formRef = ref(null)
+
+// Auth password dialog state
+const authDialogVisible = ref(false)
+const authPassword = ref('')
+const authLoading = ref(false)
+const authAction = ref(null)   // { type: 'edit'|'delete', row: ... }
 
 const idDocNumberError = ref('')
 const aux1DocNumberError = ref('')
@@ -682,6 +708,47 @@ async function fetchMembers() {
   }
 }
 
+// Open auth dialog before editing
+function openEditWithAuth(row) {
+  authAction.value = { type: 'edit', row }
+  authPassword.value = ''
+  authDialogVisible.value = true
+}
+
+async function confirmAuthAction() {
+  if (!authAction.value) return
+  if (!authPassword.value) {
+    ElMessage.warning('请输入授权密码')
+    return
+  }
+  authLoading.value = true
+  try {
+    const { type, row } = authAction.value
+    if (type === 'edit') {
+      // Store the auth password; it will be included when the user saves
+      pendingAuthPassword.value = authPassword.value
+      authDialogVisible.value = false
+      if (row) {
+        openDialog(row)
+      }
+      // If row is null this was called from the create-parent flow; the save will retry
+    } else if (type === 'delete') {
+      await deleteMemberWithAuth(row.id, authPassword.value)
+      ElMessage.success('已删除')
+      authDialogVisible.value = false
+      await fetchMembers()
+    }
+  } catch (e) {
+    const msg = e.response?.data?.message || '操作失败'
+    ElMessage.error(msg)
+  } finally {
+    authLoading.value = false
+  }
+}
+
+// Stores the auth password entered before opening the edit dialog
+const pendingAuthPassword = ref('')
+
 function openDialog(row = null) {
   if (row) {
     editingId.value = row.id
@@ -692,6 +759,10 @@ function openDialog(row = null) {
     // Backward compatibility: use row.name if name_cn is absent
     if (!form.name_cn && row.name) {
       form.name_cn = row.name
+    }
+    // Normalize legacy "adult" role
+    if (form.role === 'adult') {
+      form.role = 'parent'
     }
     // Backward compatibility: migrate old aux_doc fields to aux1
     if (!form.aux1_doc_type && row.aux_doc_type) {
@@ -714,6 +785,7 @@ function openDialog(row = null) {
     }
   } else {
     editingId.value = null
+    pendingAuthPassword.value = ''
     resetForm()
   }
   dialogVisible.value = true
@@ -727,6 +799,7 @@ function resetForm() {
   aux1DocNumberError.value = ''
   aux2DocNumberError.value = ''
   nameEnManuallyEdited.value = false
+  pendingAuthPassword.value = ''
   formRef.value?.resetFields()
 }
 
@@ -756,17 +829,29 @@ async function handleSave() {
   try {
     const payload = { ...form, name: form.name_cn || form.name_en }
     if (editingId.value) {
+      // Include auth password for server-side validation
+      payload.auth_password = pendingAuthPassword.value
       await updateMember(editingId.value, payload)
       ElMessage.success('成员已更新')
     } else {
+      // For new parent records, include auth_password if provided (same-person child exists)
+      payload.auth_password = pendingAuthPassword.value
       await createMember(payload)
       ElMessage.success('成员已添加')
     }
     dialogVisible.value = false
+    pendingAuthPassword.value = ''
     await fetchMembers()
   } catch (e) {
     const msg = e.response?.data?.message || '保存失败，请稍后重试'
     ElMessage.error(msg)
+    // If server requires auth password for new parent (same-person child exists),
+    // show the auth dialog so the user can supply it and retry
+    if (e.response?.status === 403 && !editingId.value) {
+      authAction.value = { type: 'edit', row: null }
+      authPassword.value = ''
+      authDialogVisible.value = true
+    }
   } finally {
     saving.value = false
   }
@@ -779,11 +864,12 @@ async function handleDelete(row) {
       '删除确认',
       { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
     )
-    await deleteMember(row.id)
-    ElMessage.success('已删除')
-    await fetchMembers()
-  } catch (e) {
-    if (e !== 'cancel') ElMessage.error('删除失败')
+    // All deletions require auth password
+    authAction.value = { type: 'delete', row }
+    authPassword.value = ''
+    authDialogVisible.value = true
+  } catch {
+    // User cancelled the confirmation – do nothing
   }
 }
 

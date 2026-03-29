@@ -52,4 +52,7 @@ type Member struct {
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+
+	// Transient: used for authorization checks during create/update/delete; not persisted
+	AuthPassword string `json:"auth_password" gorm:"-"`
 }
