@@ -725,11 +725,13 @@ async function confirmAuthAction() {
   try {
     const { type, row } = authAction.value
     if (type === 'edit') {
-      // Verify by attempting save with auth_password (server will reject bad password)
-      // Here we just pass the password into the form for when the user actually saves
+      // Store the auth password; it will be included when the user saves
       pendingAuthPassword.value = authPassword.value
       authDialogVisible.value = false
-      openDialog(row)
+      if (row) {
+        openDialog(row)
+      }
+      // If row is null this was called from the create-parent flow; the save will retry
     } else if (type === 'delete') {
       await deleteMemberWithAuth(row.id, authPassword.value)
       ElMessage.success('已删除')
@@ -843,9 +845,10 @@ async function handleSave() {
   } catch (e) {
     const msg = e.response?.data?.message || '保存失败，请稍后重试'
     ElMessage.error(msg)
-    // If auth password error for new parent record, prompt for auth
+    // If server requires auth password for new parent (same-person child exists),
+    // show the auth dialog so the user can supply it and retry
     if (e.response?.status === 403 && !editingId.value) {
-      authAction.value = { type: 'newParentWithChild', row: null }
+      authAction.value = { type: 'edit', row: null }
       authPassword.value = ''
       authDialogVisible.value = true
     }
@@ -865,10 +868,8 @@ async function handleDelete(row) {
     authAction.value = { type: 'delete', row }
     authPassword.value = ''
     authDialogVisible.value = true
-  } catch (e) {
-    if (e !== 'cancel' && e?.constructor?.name !== 'Error') {
-      // cancelled - do nothing
-    }
+  } catch {
+    // User cancelled the confirmation – do nothing
   }
 }
 

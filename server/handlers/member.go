@@ -664,8 +664,8 @@ func (h *MemberHandler) Create(c *gin.Context) {
 		if nameCn != "" && birthDate != "" {
 			var existingCount int64
 			h.DB.Model(&models.Member{}).
-				Where("(role = ? OR role = ?) AND name_cn = ? AND birth_date = ?",
-					"child", "child", nameCn, birthDate).
+				Where("role = ? AND name_cn = ? AND birth_date = ?",
+					"child", nameCn, birthDate).
 				Count(&existingCount)
 			if existingCount > 0 {
 				if err := h.checkAuthPassword(member.AuthPassword); err != nil {
@@ -758,8 +758,16 @@ func (h *MemberHandler) DeleteWithAuth(c *gin.Context) {
 	var req struct {
 		AuthPassword string `json:"auth_password"`
 	}
-	// Body is optional for this endpoint; ShouldBindJSON may fail if body is empty
-	_ = c.ShouldBindJSON(&req)
+	// Body is optional (empty body means no auth_password provided).
+	// Only return an error for genuinely malformed JSON, not for an empty body.
+	if err := c.ShouldBindJSON(&req); err != nil {
+		// io.EOF and io.ErrUnexpectedEOF mean empty body – treat as missing password
+		errMsg := err.Error()
+		if errMsg != "EOF" && errMsg != "unexpected EOF" {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "请求格式错误"})
+			return
+		}
+	}
 
 	var member models.Member
 	if err := h.DB.First(&member, id).Error; err != nil {
