@@ -416,6 +416,12 @@ func validateMember(m *models.Member) error {
 			return fmt.Errorf("就读学校名称须包含「小学」、「中学」、「大学」或「学院」之一")
 		}
 	}
+
+	// Document date validation
+	if err := validateDocumentDates(m); err != nil {
+		return err
+	}
+
 	return nil
 }
 

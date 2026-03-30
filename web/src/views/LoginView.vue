@@ -1,10 +1,15 @@
 <template>
   <div class="login-container">
     <el-card class="login-card">
+      <!-- Language toggle -->
+      <div class="lang-toggle">
+        <el-button size="small" plain @click="toggleLang">{{ t('lang.toggle') }}</el-button>
+      </div>
+
       <div class="login-header">
         <el-icon :size="48" color="#409EFF"><House /></el-icon>
-        <h1>家庭惩戒管理系统</h1>
-        <p class="subtitle">FMPS</p>
+        <h1>{{ t('login.title') }}</h1>
+        <p class="subtitle">{{ t('login.subtitle') }}</p>
       </div>
 
       <el-form
@@ -14,19 +19,19 @@
         label-position="top"
         @submit.prevent="handleLogin"
       >
-        <el-form-item label="用户名" prop="username">
+        <el-form-item :label="t('login.usernameLabel')" prop="username">
           <el-input
             v-model="form.username"
-            placeholder="请输入用户名"
+            :placeholder="t('login.usernamePlaceholder')"
             prefix-icon="User"
             size="large"
           />
         </el-form-item>
-        <el-form-item label="密码" prop="password">
+        <el-form-item :label="t('login.passwordLabel')" prop="password">
           <el-input
             v-model="form.password"
             type="password"
-            placeholder="请输入密码"
+            :placeholder="t('login.passwordPlaceholder')"
             prefix-icon="Lock"
             size="large"
             show-password
@@ -51,23 +56,25 @@
             :loading="loading"
             @click="handleLogin"
           >
-            登 录
+            {{ t('login.loginButton') }}
           </el-button>
         </el-form-item>
       </el-form>
 
       <el-divider />
-      <p class="hint">默认账号：admin &nbsp;/&nbsp; 默认密码：123456</p>
+      <p class="hint">{{ t('login.defaultHint') }}</p>
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { login } from '@/utils/api'
 
 const router = useRouter()
+const { t, locale } = useI18n()
 const formRef = ref(null)
 const loading = ref(false)
 const errorMsg = ref('')
@@ -77,9 +84,15 @@ const form = reactive({
   password: ''
 })
 
-const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+const rules = computed(() => ({
+  username: [{ required: true, message: t('login.usernameRequired'), trigger: 'blur' }],
+  password: [{ required: true, message: t('login.passwordRequired'), trigger: 'blur' }]
+}))
+
+function toggleLang() {
+  const next = locale.value === 'zh-CN' ? 'en-US' : 'zh-CN'
+  locale.value = next
+  localStorage.setItem('fmps_lang', next)
 }
 
 async function handleLogin() {
@@ -95,7 +108,7 @@ async function handleLogin() {
       router.push('/dashboard')
     } catch (err) {
       errorMsg.value =
-        err.response?.data?.message || err.response?.data?.error || '登录失败，请检查用户名和密码'
+        err.response?.data?.message || err.response?.data?.error || t('login.loginFailed')
     } finally {
       loading.value = false
     }
@@ -116,6 +129,14 @@ async function handleLogin() {
   width: 420px;
   border-radius: 12px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+.lang-toggle {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1;
 }
 
 .login-header {

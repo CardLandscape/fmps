@@ -2,29 +2,29 @@
   <el-card shadow="never">
     <template #header>
       <div style="display: flex; justify-content: space-between; align-items: center">
-        <span style="font-weight: 600">家庭成员管理</span>
+        <span style="font-weight: 600">{{ t('members.title') }}</span>
         <el-button type="primary" @click="openDialog()">
           <el-icon><Plus /></el-icon>
-          添加成员
+          {{ t('members.addMember') }}
         </el-button>
       </div>
     </template>
 
     <el-table :data="members" v-loading="loading" stripe style="width: 100%">
-      <el-table-column label="姓名">
+      <el-table-column :label="t('members.colName')">
         <template #default="{ row }">{{ getMemberDisplayName(row) }}</template>
       </el-table-column>
-      <el-table-column prop="role" label="角色" width="80">
+      <el-table-column prop="role" :label="t('members.colRole')" width="80">
         <template #default="{ row }">
           <el-tag :type="row.role === 'child' ? 'warning' : 'success'">
-            {{ row.role === 'child' ? '小孩' : '家长' }}
+            {{ row.role === 'child' ? t('members.roleChild') : t('members.roleParent') }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="gender" label="性别" width="70" />
-      <el-table-column prop="nationality" label="国籍" width="80" />
-      <el-table-column prop="school_name" label="学校" />
-      <el-table-column prop="outing_permission" label="外出权限" width="90">
+      <el-table-column prop="gender" :label="t('members.colGender')" width="70" />
+      <el-table-column prop="nationality" :label="t('members.colNationality')" width="80" />
+      <el-table-column prop="school_name" :label="t('members.colSchool')" />
+      <el-table-column prop="outing_permission" :label="t('members.colOutingPerm')" width="90">
         <template #default="{ row }">
           <el-tag v-if="row.outing_permission" :type="permissionTagType(row.outing_permission)" size="small">
             {{ row.outing_permission }}
@@ -32,13 +32,13 @@
           <span v-else>-</span>
         </template>
       </el-table-column>
-      <el-table-column prop="created_at" label="创建时间" width="160">
+      <el-table-column prop="created_at" :label="t('members.colCreatedAt')" width="160">
         <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="160" fixed="right">
+      <el-table-column :label="t('members.colOperation')" width="160" fixed="right">
         <template #default="{ row }">
-          <el-button size="small" type="primary" plain @click="openEditWithAuth(row)">编辑</el-button>
-          <el-button size="small" type="danger" plain @click="handleDelete(row)">删除</el-button>
+          <el-button size="small" type="primary" plain @click="openEditWithAuth(row)">{{ t('common.edit') }}</el-button>
+          <el-button size="small" type="danger" plain @click="handleDelete(row)">{{ t('common.delete') }}</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -46,7 +46,7 @@
 
   <el-dialog
     v-model="dialogVisible"
-    :title="editingId ? '编辑成员' : '添加成员'"
+    :title="editingId ? t('members.editMember') : t('members.addMember')"
     width="760px"
     @closed="resetForm"
   >
@@ -54,35 +54,35 @@
       <el-form ref="formRef" :model="form" :rules="formRules" label-width="120px">
 
         <!-- 基本信息 -->
-        <el-divider content-position="left">基本信息</el-divider>
+        <el-divider content-position="left">{{ t('members.sectionBasic') }}</el-divider>
 
-        <el-form-item label="中文姓名" prop="name_cn">
+        <el-form-item :label="t('members.nameCn')" prop="name_cn">
           <el-input v-model="form.name_cn" placeholder="请输入中文姓名" />
         </el-form-item>
 
-        <el-form-item label="英文姓名" prop="name_en">
-          <el-input v-model="form.name_en" placeholder="请输入英文姓名（必填，例如：ZHANG XIAOMING）" @input="nameEnManuallyEdited = true" />
+        <el-form-item :label="t('members.nameEn')" prop="name_en">
+          <el-input v-model="form.name_en" :placeholder="t('members.nameEnPlaceholder')" @input="nameEnManuallyEdited = true" />
         </el-form-item>
 
-        <el-form-item label="角色" prop="role">
-          <el-select v-model="form.role" :disabled="!!editingId" placeholder="请选择角色" style="width: 100%">
-            <el-option label="小孩" value="child" />
-            <el-option label="家长" value="parent" />
+        <el-form-item :label="t('members.role')" prop="role">
+          <el-select v-model="form.role" :disabled="!!editingId" :placeholder="t('members.rolePlaceholder')" style="width: 100%">
+            <el-option :label="t('members.roleChild')" value="child" />
+            <el-option :label="t('members.roleParent')" value="parent" />
           </el-select>
-          <div v-if="editingId" style="font-size:12px;color:#909399;margin-top:2px">成员类型一经确定不可更改</div>
+          <div v-if="editingId" style="font-size:12px;color:#909399;margin-top:2px">{{ t('members.roleImmutable') }}</div>
         </el-form-item>
 
-        <el-form-item label="性别" prop="gender">
+        <el-form-item :label="t('members.gender')" prop="gender">
           <el-radio-group v-model="form.gender">
-            <el-radio value="男">男</el-radio>
-            <el-radio value="女">女</el-radio>
+            <el-radio value="男">{{ t('members.genderMale') }}</el-radio>
+            <el-radio value="女">{{ t('members.genderFemale') }}</el-radio>
           </el-radio-group>
         </el-form-item>
 
-        <el-form-item label="国籍" prop="nationality">
+        <el-form-item :label="t('members.nationality')" prop="nationality">
           <el-select
             v-model="form.nationality"
-            placeholder="请选择国籍（必填）"
+            :placeholder="t('members.nationalityPlaceholder')"
             filterable
             style="width: 100%"
             @change="onNationalityChange"
@@ -96,66 +96,87 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item label="出生日期" prop="birth_date">
+        <el-form-item :label="t('members.birthDate')" prop="birth_date">
           <el-date-picker
             v-model="form.birth_date"
             type="date"
-            placeholder="选择出生日期（必填）"
+            :placeholder="t('members.birthDatePlaceholder')"
             value-format="YYYY-MM-DD"
             style="width: 100%"
           />
         </el-form-item>
 
         <!-- 主证件 -->
-        <el-divider content-position="left">主证件信息</el-divider>
+        <el-divider content-position="left">{{ t('members.sectionId') }}</el-divider>
 
-        <el-form-item label="主证件类型" prop="id_doc_type">
+        <el-form-item :label="t('members.idDocType')" prop="id_doc_type">
           <el-select
             v-model="form.id_doc_type"
-            placeholder="请选择证件类型（必填）"
+            :placeholder="t('members.idDocTypePlaceholder')"
             style="width: 100%"
             @change="onIdDocTypeChange"
           >
             <el-option
-              v-for="t in ID_DOC_TYPES"
-              :key="t.code"
-              :label="t.name"
-              :value="t.code"
+              v-for="docType in ID_DOC_TYPES"
+              :key="docType.code"
+              :label="docType.name"
+              :value="docType.code"
             />
           </el-select>
         </el-form-item>
 
-        <el-form-item label="主证件号码" prop="id_doc_number" :error="idDocNumberError">
-          <el-input v-model="form.id_doc_number" placeholder="请输入证件号码（必填）" />
+        <el-form-item :label="t('members.idDocNumber')" prop="id_doc_number" :error="idDocNumberError">
+          <el-input v-model="form.id_doc_number" :placeholder="t('members.idDocNumberPlaceholder')" />
         </el-form-item>
 
-        <el-form-item label="签发日期" prop="id_issue_date">
+        <el-form-item :label="t('members.issueDate')" prop="id_issue_date">
           <el-date-picker
             v-model="form.id_issue_date"
             type="date"
-            placeholder="选择签发日期（必填）"
+            :placeholder="t('members.issueDatePlaceholder')"
             value-format="YYYY-MM-DD"
             style="width: 100%"
           />
         </el-form-item>
 
-        <el-form-item label="有效期" prop="id_expiry_date">
-          <el-date-picker
-            v-model="form.id_expiry_date"
-            type="date"
-            placeholder="选择有效期（必填）"
-            value-format="YYYY-MM-DD"
-            style="width: 100%"
-          />
+        <el-form-item :label="t('members.expiryDate')" prop="id_expiry_date">
+          <template v-if="isLongTermDoc">
+            <div style="display: flex; align-items: center; gap: 12px; width: 100%">
+              <el-checkbox v-model="longTermEnabled" @change="onLongTermChange">{{ t('members.longTermCheckbox') }}</el-checkbox>
+              <span v-if="longTermEnabled" style="color: #E6A23C; font-weight: 600">{{ t('members.longTerm') }}（2099-12-31）</span>
+              <el-date-picker
+                v-if="!longTermEnabled"
+                v-model="form.id_expiry_date"
+                type="date"
+                :placeholder="t('members.expiryDatePlaceholder')"
+                value-format="YYYY-MM-DD"
+                style="flex: 1"
+              />
+            </div>
+          </template>
+          <template v-else>
+            <div style="width: 100%">
+              <el-date-picker
+                v-model="form.id_expiry_date"
+                type="date"
+                :placeholder="t('members.expiryDatePlaceholder')"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+              />
+              <div v-if="calcExpiryDate" style="font-size: 12px; color: #909399; margin-top: 4px">
+                {{ t('members.expectedExpiry') }}: <span style="color: #409EFF; font-weight: 600">{{ calcExpiryDate }}</span>
+              </div>
+            </div>
+          </template>
         </el-form-item>
 
-        <el-form-item label="签发机关" prop="id_issue_authority">
-          <el-input v-model="form.id_issue_authority" placeholder="请输入签发机关（必填）" />
+        <el-form-item :label="t('members.issueAuthority')" prop="id_issue_authority">
+          <el-input v-model="form.id_issue_authority" :placeholder="t('members.issueAuthorityPlaceholder')" />
         </el-form-item>
 
         <!-- 辅助证件（根据主证件类型动态显示） -->
         <template v-if="showAuxDocs">
-          <el-divider content-position="left">辅助证件信息</el-divider>
+          <el-divider content-position="left">{{ t('members.sectionAux') }}</el-divider>
 
           <!-- 辅助证件1 -->
           <el-form-item :label="aux1Label" prop="aux1_doc_type">
@@ -168,63 +189,63 @@
               @change="onAux1DocTypeChange"
             >
               <el-option
-                v-for="t in aux1TypeOptions"
-                :key="t.code"
-                :label="t.name"
-                :value="t.code"
+                v-for="dt in aux1TypeOptions"
+                :key="dt.code"
+                :label="dt.name"
+                :value="dt.code"
               />
             </el-select>
           </el-form-item>
 
-          <el-form-item label="辅助证件1号码" prop="aux1_doc_number" :error="aux1DocNumberError">
+          <el-form-item :label="t('members.aux1Number')" prop="aux1_doc_number" :error="aux1DocNumberError">
             <el-input v-model="form.aux1_doc_number" :placeholder="aux1NumPlaceholder" />
           </el-form-item>
 
           <!-- 辅助证件2 (type 11 or 21) -->
           <template v-if="showAux2">
-            <el-form-item label="辅助证件2类型" prop="aux2_doc_type">
+            <el-form-item :label="t('members.aux2Type')" prop="aux2_doc_type">
               <el-select
                 v-model="form.aux2_doc_type"
-                placeholder="请选择辅助证件2类型（必填）"
+                :placeholder="t('members.aux2TypePlaceholder')"
                 style="width: 100%"
                 @change="onAux2DocTypeChange"
               >
                 <el-option
-                  v-for="t in aux2TypeOptions"
-                  :key="t.code"
-                  :label="t.name"
-                  :value="t.code"
+                  v-for="dt in aux2TypeOptions"
+                  :key="dt.code"
+                  :label="dt.name"
+                  :value="dt.code"
                 />
               </el-select>
             </el-form-item>
 
-            <el-form-item label="辅助证件2号码" prop="aux2_doc_number" :error="aux2DocNumberError">
-              <el-input v-model="form.aux2_doc_number" placeholder="请输入辅助证件2号码（必填）" />
+            <el-form-item :label="t('members.aux2Number')" prop="aux2_doc_number" :error="aux2DocNumberError">
+              <el-input v-model="form.aux2_doc_number" :placeholder="t('members.aux2NumberPlaceholder')" />
             </el-form-item>
           </template>
 
           <!-- 主证件04：证明文件补充字段 -->
           <template v-if="form.id_doc_type === '04'">
-            <el-form-item label="证明文件类型" prop="proof_doc_type">
+            <el-form-item :label="t('members.proofDocType')" prop="proof_doc_type">
               <el-select
                 v-model="form.proof_doc_type"
-                placeholder="请选择证明文件类型（必填）"
+                :placeholder="t('members.proofDocTypePlaceholder')"
                 style="width: 100%"
                 @change="onProofDocTypeChange"
               >
                 <el-option
-                  v-for="t in PROOF_DOC_TYPES"
-                  :key="t.code"
-                  :label="t.name"
-                  :value="t.code"
+                  v-for="pt in PROOF_DOC_TYPES"
+                  :key="pt.code"
+                  :label="pt.name"
+                  :value="pt.code"
                 />
               </el-select>
             </el-form-item>
 
-            <el-form-item label="签发国家" prop="proof_issue_country">
+            <el-form-item :label="t('members.proofIssueCountry')" prop="proof_issue_country">
               <el-select
                 v-model="form.proof_issue_country"
-                placeholder="请选择签发国家（必填）"
+                :placeholder="t('members.proofIssueCountryPlaceholder')"
                 filterable
                 style="width: 100%"
                 @change="onProofIssueCountryChange"
@@ -241,45 +262,45 @@
         </template>
 
         <!-- 学校信息 -->
-        <el-divider content-position="left">学校信息</el-divider>
+        <el-divider content-position="left">{{ t('members.sectionSchool') }}</el-divider>
 
-        <el-form-item label="就读学校" prop="school_name">
-          <el-input v-model="form.school_name" placeholder="请输入就读学校" />
+        <el-form-item :label="t('members.school')" prop="school_name">
+          <el-input v-model="form.school_name" :placeholder="t('members.schoolPlaceholder')" />
         </el-form-item>
 
-        <el-form-item label="年级" prop="grade">
-          <el-select v-model="form.grade" placeholder="请选择年级" clearable style="width: 100%">
+        <el-form-item :label="t('members.grade')" prop="grade">
+          <el-select v-model="form.grade" :placeholder="t('members.gradePlaceholder')" clearable style="width: 100%">
             <el-option v-for="g in GRADES" :key="g" :label="g" :value="g" />
           </el-select>
         </el-form-item>
 
-        <el-form-item label="班级" prop="class_name">
-          <el-select v-model="form.class_name" placeholder="请选择班级" clearable style="width: 100%">
-            <el-option v-for="c in CLASSES" :key="c" :label="`${c}班`" :value="c" />
+        <el-form-item :label="t('members.className')" prop="class_name">
+          <el-select v-model="form.class_name" :placeholder="t('members.classPlaceholder')" clearable style="width: 100%">
+            <el-option v-for="c in CLASSES" :key="c" :label="`${c}${t('members.classSuffix')}`" :value="c" />
           </el-select>
         </el-form-item>
 
-        <el-form-item label="班主任姓名" prop="class_teacher_name">
-          <el-input v-model="form.class_teacher_name" placeholder="请输入班主任姓名" />
+        <el-form-item :label="t('members.teacherName')" prop="class_teacher_name">
+          <el-input v-model="form.class_teacher_name" :placeholder="t('members.teacherNamePlaceholder')" />
         </el-form-item>
 
-        <el-form-item label="班主任电话" prop="class_teacher_phone">
-          <el-input v-model="form.class_teacher_phone" placeholder="请输入班主任电话" />
+        <el-form-item :label="t('members.teacherPhone')" prop="class_teacher_phone">
+          <el-input v-model="form.class_teacher_phone" :placeholder="t('members.teacherPhonePlaceholder')" />
         </el-form-item>
 
         <!-- 外出权限 -->
-        <el-divider content-position="left">外出权限</el-divider>
+        <el-divider content-position="left">{{ t('members.sectionOuting') }}</el-divider>
 
-        <el-form-item label="外出权限" prop="outing_permission">
+        <el-form-item :label="t('members.outingPermission')" prop="outing_permission">
           <el-radio-group v-model="form.outing_permission">
-            <el-radio value="许可">许可</el-radio>
-            <el-radio value="不许可">不许可</el-radio>
-            <el-radio value="受限">受限</el-radio>
+            <el-radio value="许可">{{ t('members.outingPermAllowed') }}</el-radio>
+            <el-radio value="不许可">{{ t('members.outingPermDenied') }}</el-radio>
+            <el-radio value="受限">{{ t('members.outingPermRestricted') }}</el-radio>
           </el-radio-group>
         </el-form-item>
 
         <template v-if="form.outing_permission === '受限'">
-          <el-form-item label="允许外出日期" prop="outing_dates">
+          <el-form-item :label="t('members.outingDates')" prop="outing_dates">
             <el-date-picker
               v-model="outingDatesArray"
               type="dates"
@@ -290,7 +311,7 @@
             />
           </el-form-item>
 
-          <el-form-item label="允许外出时段" prop="outing_time_ranges">
+          <el-form-item :label="t('members.outingTimeRanges')" prop="outing_time_ranges">
             <div style="width: 100%">
               <div
                 v-for="(range, idx) in outingTimeRanges"
@@ -305,7 +326,7 @@
                   style="width: 140px"
                   @change="syncTimeRangesToForm"
                 />
-                <span>至</span>
+                <span>{{ t('members.outingTimeTo') }}</span>
                 <el-time-picker
                   v-model="range.end"
                   placeholder="结束时间"
@@ -314,9 +335,9 @@
                   style="width: 140px"
                   @change="syncTimeRangesToForm"
                 />
-                <el-button type="danger" size="small" plain @click="removeTimeRange(idx)">删除</el-button>
+                <el-button type="danger" size="small" plain @click="removeTimeRange(idx)">{{ t('members.deleteTimeRange') }}</el-button>
               </div>
-              <el-button size="small" @click="addTimeRange">+ 添加时间段</el-button>
+              <el-button size="small" @click="addTimeRange">{{ t('members.addTimeRange') }}</el-button>
             </div>
           </el-form-item>
         </template>
@@ -325,27 +346,27 @@
     </div>
 
     <template #footer>
-      <el-button @click="dialogVisible = false">取消</el-button>
-      <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
+      <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
+      <el-button type="primary" :loading="saving" @click="handleSave">{{ t('common.save') }}</el-button>
     </template>
   </el-dialog>
 
   <!-- 授权密码对话框（编辑/删除前验证） -->
-  <el-dialog v-model="authDialogVisible" title="需要授权密码" width="360px" :close-on-click-modal="false">
+  <el-dialog v-model="authDialogVisible" :title="t('members.authDialogTitle')" width="360px" :close-on-click-modal="false">
     <el-form @submit.prevent>
-      <el-form-item label="授权密码" label-width="80px">
+      <el-form-item :label="t('members.authPasswordLabel')" label-width="80px">
         <el-input
           v-model="authPassword"
           type="password"
           show-password
-          placeholder="请输入授权密码"
+          :placeholder="t('members.authPasswordPlaceholder')"
           @keyup.enter="confirmAuthAction"
         />
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="authDialogVisible = false">取 消</el-button>
-      <el-button type="primary" :loading="authLoading" @click="confirmAuthAction">确 定</el-button>
+      <el-button @click="authDialogVisible = false">{{ t('common.cancel') }}</el-button>
+      <el-button type="primary" :loading="authLoading" @click="confirmAuthAction">{{ t('common.confirm') }}</el-button>
     </template>
   </el-dialog>
 </template>
@@ -354,6 +375,7 @@
 import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import { getMembers, createMember, updateMember, deleteMemberWithAuth } from '@/utils/api'
 import {
   COUNTRIES,
@@ -366,6 +388,8 @@ import {
   validateIDNumber,
   validateNationalityDocType
 } from '@/utils/constants'
+
+const { t } = useI18n()
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
@@ -450,25 +474,25 @@ const aux1TypeOptions = computed(() => {
 const aux1TypeFixed = computed(() => ['11', '21', '04'].includes(form.id_doc_type))
 
 const aux1Label = computed(() => {
-  if (form.id_doc_type === '04') return '辅助证件类型'
-  return '辅助证件1类型'
+  if (form.id_doc_type === '04') return t('members.aux1TypeFixed')
+  return t('members.aux1Type')
 })
 
 const aux1NumPlaceholder = computed(() => {
   const req = ['11', '21', '04'].includes(form.id_doc_type)
-  return req ? '请输入辅助证件号码（必填）' : '请输入辅助证件号码（可选）'
+  return req ? t('members.aux1NumberRequired') : t('members.aux1NumberOptional')
 })
 
 const aux1TypePlaceholder = computed(() => {
   const req = ['11', '21', '04'].includes(form.id_doc_type)
-  return req ? '请选择辅助证件类型（必填）' : '请选择辅助证件类型（可选）'
+  return req ? t('members.aux1TypeRequired') : t('members.aux1TypeOptional')
 })
 
 // Aux2 type options based on primary doc type
 const aux2TypeOptions = computed(() => {
   switch (form.id_doc_type) {
-    case '11': return AUX_DOC_TYPES.filter(t => ['90', '92', '96', '97'].includes(t.code))
-    case '21': return AUX_DOC_TYPES.filter(t => t.code === '93')
+    case '11': return AUX_DOC_TYPES.filter(dt => ['90', '92', '96', '97'].includes(dt.code))
+    case '21': return AUX_DOC_TYPES.filter(dt => dt.code === '93')
     default: return AUX_DOC_TYPES
   }
 })
@@ -497,23 +521,32 @@ const formRules = computed(() => {
   const needAux2 = ['11', '21'].includes(mainType)
 
   return {
-    name_cn: requireChinese ? [{ required: true, message: '中文姓名为必填项（CHN/HKG/MAC/TWN国籍）', trigger: 'blur' }] : [],
-    name_en: [{ required: true, message: '英文姓名为必填项', trigger: 'blur' }],
-    role: [{ required: true, message: '请选择角色', trigger: 'change' }],
-    gender: [{ required: true, message: '请选择性别', trigger: 'change' }],
-    nationality: [{ required: true, message: '国籍为必填项', trigger: 'change' }],
-    birth_date: [{ required: true, message: '出生日期为必填项', trigger: 'change' }],
-    id_doc_type: [{ required: true, message: '主证件类型为必填项', trigger: 'change' }],
-    id_doc_number: [{ required: true, message: '主证件号码为必填项', trigger: 'blur' }],
-    id_issue_date: [{ required: true, message: '签发日期为必填项', trigger: 'change' }],
-    id_expiry_date: [{ required: true, message: '有效期为必填项', trigger: 'change' }],
-    id_issue_authority: [{ required: true, message: '签发机关为必填项', trigger: 'blur' }],
-    aux1_doc_type: needAux1 ? [{ required: true, message: '辅助证件1类型为必填项', trigger: 'change' }] : [],
-    aux1_doc_number: needAux1 ? [{ required: true, message: '辅助证件1号码为必填项', trigger: 'blur' }] : [],
-    aux2_doc_type: needAux2 ? [{ required: true, message: '辅助证件2类型为必填项', trigger: 'change' }] : [],
-    aux2_doc_number: needAux2 ? [{ required: true, message: '辅助证件2号码为必填项', trigger: 'blur' }] : [],
-    proof_doc_type: mainType === '04' ? [{ required: true, message: '证明文件类型为必填项', trigger: 'change' }] : [],
-    proof_issue_country: mainType === '04' ? [{ required: true, message: '签发国家为必填项', trigger: 'change' }] : [],
+    name_cn: requireChinese ? [{ required: true, message: t('members.nameCnRequired'), trigger: 'blur' }] : [],
+    name_en: [{ required: true, message: t('members.nameEnRequired'), trigger: 'blur' }],
+    role: [{ required: true, message: t('members.roleRequired'), trigger: 'change' }],
+    gender: [{ required: true, message: t('members.genderRequired'), trigger: 'change' }],
+    nationality: [{ required: true, message: t('members.nationalityRequired'), trigger: 'change' }],
+    birth_date: [
+      { required: true, message: t('members.birthDateRequired'), trigger: 'change' },
+      { validator: validateBirthDateRule, trigger: 'change' }
+    ],
+    id_doc_type: [{ required: true, message: t('members.idDocTypeRequired'), trigger: 'change' }],
+    id_doc_number: [{ required: true, message: t('members.idDocNumberRequired'), trigger: 'blur' }],
+    id_issue_date: [
+      { required: true, message: t('members.issueDateRequired'), trigger: 'change' },
+      { validator: validateIssueDateRule, trigger: 'change' }
+    ],
+    id_expiry_date: [
+      { required: true, message: t('members.expiryDateRequired'), trigger: 'change' },
+      { validator: validateExpiryDateRule, trigger: 'change' }
+    ],
+    id_issue_authority: [{ required: true, message: t('members.issueAuthorityRequired'), trigger: 'blur' }],
+    aux1_doc_type: needAux1 ? [{ required: true, message: t('members.aux1TypeRequired2'), trigger: 'change' }] : [],
+    aux1_doc_number: needAux1 ? [{ required: true, message: t('members.aux1NumberRequired2'), trigger: 'blur' }] : [],
+    aux2_doc_type: needAux2 ? [{ required: true, message: t('members.aux2TypeRequired'), trigger: 'change' }] : [],
+    aux2_doc_number: needAux2 ? [{ required: true, message: t('members.aux2NumberRequired'), trigger: 'blur' }] : [],
+    proof_doc_type: mainType === '04' ? [{ required: true, message: t('members.proofDocTypeRequired'), trigger: 'change' }] : [],
+    proof_issue_country: mainType === '04' ? [{ required: true, message: t('members.proofIssueCountryRequired'), trigger: 'change' }] : [],
     school_name: [{ validator: validateSchoolNameRule, trigger: 'blur' }]
   }
 })
@@ -568,7 +601,215 @@ watch(() => form.id_doc_type, (newType) => {
   form.aux2_doc_number = ''
   form.proof_doc_type = ''
   form.proof_issue_country = ''
+  longTermEnabled.value = false
 })
+
+// ─── Document date helpers ────────────────────────────────────────────────────
+
+// Whether this doc type allows long-term expiry (type 01, age ≥ 46)
+const isLongTermDoc = computed(() => form.id_doc_type === '01')
+
+// Long-term checkbox state (type 01, age ≥ 46)
+const longTermEnabled = ref(false)
+
+function onLongTermChange(val) {
+  if (val) {
+    form.id_expiry_date = '2099-12-31'
+  } else {
+    // Clear and let calcExpiryDate repopulate if possible
+    form.id_expiry_date = ''
+    const exp = calcExpiryDate.value
+    if (exp && exp !== '2099-12-31') {
+      form.id_expiry_date = exp
+    }
+  }
+}
+
+// Helper: parse a YYYY-MM-DD string into a Date (UTC midnight)
+function parseDate(s) {
+  if (!s) return null
+  const d = new Date(s + 'T00:00:00Z')
+  return isNaN(d.getTime()) ? null : d
+}
+
+// Helper: isLeapYear
+function isLeapYearJS(y) {
+  return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0
+}
+
+// Helper: addSameDayYears (mirrors Go logic)
+function addSameDayYearsJS(d, years) {
+  const targetYear = d.getUTCFullYear() + years
+  const month = d.getUTCMonth() // 0-based
+  const day = d.getUTCDate()
+  // Feb 29 → if target year not leap → Mar 1
+  if (month === 1 && day === 29 && !isLeapYearJS(targetYear)) {
+    return new Date(Date.UTC(targetYear, 2, 1)) // March 1
+  }
+  return new Date(Date.UTC(targetYear, month, day))
+}
+
+// Helper: addYearsMinusOneDay (mirrors Go logic)
+function addYearsMinusOneDayJS(d, years) {
+  const result = new Date(d.getTime())
+  result.setUTCFullYear(result.getUTCFullYear() + years)
+  result.setUTCDate(result.getUTCDate() - 1)
+  return result
+}
+
+// Helper: ageAtDate (mirrors Go logic)
+function ageAtDateJS(birthDate, targetDate) {
+  let years = targetDate.getUTCFullYear() - birthDate.getUTCFullYear()
+  let effectiveBirthday
+  const bMonth = birthDate.getUTCMonth()
+  const bDay = birthDate.getUTCDate()
+  const tYear = targetDate.getUTCFullYear()
+  if (bMonth === 1 && bDay === 29) {
+    // Feb 29 birthday → always treated as Mar 1
+    effectiveBirthday = new Date(Date.UTC(tYear, 2, 1))
+  } else {
+    effectiveBirthday = new Date(Date.UTC(tYear, bMonth, bDay))
+  }
+  if (targetDate.getTime() < effectiveBirthday.getTime()) {
+    years--
+  }
+  return years
+}
+
+// Format date as YYYY-MM-DD
+function fmtDate(d) {
+  if (!d) return ''
+  return d.toISOString().slice(0, 10)
+}
+
+// Reactive computed: expected expiry date based on doc type + birth + issue + role
+const calcExpiryDate = computed(() => {
+  const docType = form.id_doc_type
+  if (!docType) return ''
+
+  const birthDate = parseDate(form.birth_date)
+  const issueDate = parseDate(form.id_issue_date)
+  if (!issueDate) return ''
+
+  switch (docType) {
+    case '01': {
+      if (!birthDate) return ''
+      const ageAtIssue = ageAtDateJS(birthDate, issueDate)
+      if (ageAtIssue >= 46) return '2099-12-31'
+      if (ageAtIssue >= 26) return fmtDate(addSameDayYearsJS(issueDate, 20))
+      if (ageAtIssue >= 16) return fmtDate(addSameDayYearsJS(issueDate, 10))
+      return fmtDate(addSameDayYearsJS(issueDate, 5))
+    }
+    case '91': {
+      if (!birthDate) return ''
+      // Expiry = 16th birthday
+      const bYear = birthDate.getUTCFullYear()
+      const bMonth = birthDate.getUTCMonth()
+      const bDay = birthDate.getUTCDate()
+      if (bMonth === 1 && bDay === 29 && !isLeapYearJS(bYear + 16)) {
+        return fmtDate(new Date(Date.UTC(bYear + 16, 2, 1)))
+      }
+      return fmtDate(new Date(Date.UTC(bYear + 16, bMonth, bDay)))
+    }
+    case '11':
+    case '21':
+      return fmtDate(addSameDayYearsJS(issueDate, 5))
+    case '31': {
+      if (!birthDate) return ''
+      const ageAtIssue = ageAtDateJS(birthDate, issueDate)
+      return fmtDate(addYearsMinusOneDayJS(issueDate, ageAtIssue < 18 ? 5 : 10))
+    }
+    case '02': {
+      if (!birthDate) return ''
+      const ageAtIssue = ageAtDateJS(birthDate, issueDate)
+      return fmtDate(addYearsMinusOneDayJS(issueDate, ageAtIssue < 18 ? 5 : 10))
+    }
+    case '03':
+    case '52':
+      return fmtDate(addYearsMinusOneDayJS(issueDate, 5))
+    case '04': {
+      if (!birthDate) return ''
+      const ageAtIssue = ageAtDateJS(birthDate, issueDate)
+      return fmtDate(addYearsMinusOneDayJS(issueDate, ageAtIssue < 16 ? 5 : 10))
+    }
+    case '05':
+      // No fixed expiry, just max 10yr – return max
+      return fmtDate(addSameDayYearsJS(issueDate, 10))
+    default:
+      return ''
+  }
+})
+
+// Auto-fill expiry date when calcExpiryDate changes (for most types)
+watch(calcExpiryDate, (newExpiry) => {
+  if (!newExpiry) return
+  const docType = form.id_doc_type
+  // For type 05 don't auto-fill (user chooses any date ≤ max)
+  if (docType === '05') return
+  // For type 01 with long-term, handle separately
+  if (docType === '01' && newExpiry === '2099-12-31') {
+    longTermEnabled.value = true
+    form.id_expiry_date = '2099-12-31'
+    return
+  }
+  if (docType === '01' && longTermEnabled.value) return
+  form.id_expiry_date = newExpiry
+})
+
+// ─── Date validation rules ────────────────────────────────────────────────────
+
+function validateBirthDateRule(_rule, value, callback) {
+  if (!value) { callback(); return }
+  const d = parseDate(value)
+  if (!d) { callback(); return }
+  const today = new Date()
+  today.setUTCHours(0, 0, 0, 0)
+  if (d >= today) {
+    callback(new Error(t('members.birthBeforeToday')))
+    return
+  }
+  const hundredYearsAgo = new Date(today)
+  hundredYearsAgo.setUTCFullYear(hundredYearsAgo.getUTCFullYear() - 100)
+  if (d < hundredYearsAgo) {
+    callback(new Error(t('members.birthWithin100Years')))
+    return
+  }
+  callback()
+}
+
+function validateIssueDateRule(_rule, value, callback) {
+  if (!value) { callback(); return }
+  const d = parseDate(value)
+  if (!d) { callback(); return }
+  const today = new Date()
+  today.setUTCHours(0, 0, 0, 0)
+  if (d > today) {
+    callback(new Error(t('members.issueDateNotFuture')))
+    return
+  }
+  const twentyYearsAgo = new Date(today)
+  twentyYearsAgo.setUTCFullYear(twentyYearsAgo.getUTCFullYear() - 20)
+  if (d < twentyYearsAgo) {
+    callback(new Error(t('members.issueDateWithin20Years')))
+    return
+  }
+  callback()
+}
+
+function validateExpiryDateRule(_rule, value, callback) {
+  if (!value) { callback(); return }
+  // Long-term is always valid
+  if (value === '2099-12-31') { callback(); return }
+  const d = parseDate(value)
+  if (!d) { callback(); return }
+  const today = new Date()
+  today.setUTCHours(0, 0, 0, 0)
+  if (d <= today) {
+    callback(new Error(t('members.expiryAfterToday')))
+    return
+  }
+  callback()
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -581,7 +822,7 @@ function validateSchoolNameRule(rule, value, callback) {
   if (keywords.some(kw => value.includes(kw))) {
     callback()
   } else {
-    callback(new Error('就读学校名称须包含"小学"、"中学"、"大学"或"学院"之一'))
+    callback(new Error(t('members.schoolKeywordError')))
   }
 }
 
@@ -628,7 +869,7 @@ function onIdDocTypeChange(docType) {
     const stillValid = available.some(c => c.code === form.nationality)
     if (!stillValid) {
       form.nationality = ''
-      ElMessage.warning('当前国籍与所选证件类型不兼容，已清空国籍')
+      ElMessage.warning(t('members.natMismatchWarning'))
     }
   }
 }
@@ -657,11 +898,11 @@ async function onProofIssueCountryChange(val) {
   if (warningCountries.has(val)) {
     try {
       await ElMessageBox.confirm(
-        '此人近2年内是否实际居住在该国家超过18个月？如否，建议加强核实。',
-        '⚠️ 高风险国家确认',
+        t('members.highRiskCountryConfirm'),
+        t('members.highRiskCountryTitle'),
         {
-          confirmButtonText: '确认继续',
-          cancelButtonText: '取消',
+          confirmButtonText: t('members.highRiskConfirmBtn'),
+          cancelButtonText: t('common.cancel'),
           type: 'warning'
         }
       )
@@ -702,7 +943,7 @@ async function fetchMembers() {
     const res = await getMembers()
     members.value = res.data || []
   } catch {
-    ElMessage.error('获取成员列表失败')
+    ElMessage.error(t('members.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -718,28 +959,26 @@ function openEditWithAuth(row) {
 async function confirmAuthAction() {
   if (!authAction.value) return
   if (!authPassword.value) {
-    ElMessage.warning('请输入授权密码')
+    ElMessage.warning(t('members.authPasswordRequired'))
     return
   }
   authLoading.value = true
   try {
     const { type, row } = authAction.value
     if (type === 'edit') {
-      // Store the auth password; it will be included when the user saves
       pendingAuthPassword.value = authPassword.value
       authDialogVisible.value = false
       if (row) {
         openDialog(row)
       }
-      // If row is null this was called from the create-parent flow; the save will retry
     } else if (type === 'delete') {
       await deleteMemberWithAuth(row.id, authPassword.value)
-      ElMessage.success('已删除')
+      ElMessage.success(t('members.deletedSuccess'))
       authDialogVisible.value = false
       await fetchMembers()
     }
   } catch (e) {
-    const msg = e.response?.data?.message || '操作失败'
+    const msg = e.response?.data?.message || t('common.failed')
     ElMessage.error(msg)
   } finally {
     authLoading.value = false
@@ -783,6 +1022,8 @@ function openDialog(row = null) {
     } catch {
       outingTimeRanges.value = []
     }
+    // Set long-term checkbox based on expiry date
+    longTermEnabled.value = form.id_expiry_date === '2099-12-31'
   } else {
     editingId.value = null
     pendingAuthPassword.value = ''
@@ -798,6 +1039,7 @@ function resetForm() {
   idDocNumberError.value = ''
   aux1DocNumberError.value = ''
   aux2DocNumberError.value = ''
+  longTermEnabled.value = false
   nameEnManuallyEdited.value = false
   pendingAuthPassword.value = ''
   formRef.value?.resetFields()
@@ -807,21 +1049,21 @@ async function handleSave() {
   try {
     await formRef.value.validate()
   } catch {
-    ElMessage.error('请检查表单填写是否正确')
+    ElMessage.error(t('members.formError'))
     return
   }
 
   // Block save if there are ID number validation errors
   if (idDocNumberError.value) {
-    ElMessage.error('主证件号码格式有误，请修正后保存')
+    ElMessage.error(t('members.mainDocNumberError'))
     return
   }
   if (aux1DocNumberError.value) {
-    ElMessage.error('辅助证件1号码格式有误，请修正后保存')
+    ElMessage.error(t('members.aux1NumberError'))
     return
   }
   if (aux2DocNumberError.value) {
-    ElMessage.error('辅助证件2号码格式有误，请修正后保存')
+    ElMessage.error(t('members.aux2NumberError'))
     return
   }
 
@@ -829,24 +1071,20 @@ async function handleSave() {
   try {
     const payload = { ...form, name: form.name_cn || form.name_en }
     if (editingId.value) {
-      // Include auth password for server-side validation
       payload.auth_password = pendingAuthPassword.value
       await updateMember(editingId.value, payload)
-      ElMessage.success('成员已更新')
+      ElMessage.success(t('members.saveSuccess'))
     } else {
-      // For new parent records, include auth_password if provided (same-person child exists)
       payload.auth_password = pendingAuthPassword.value
       await createMember(payload)
-      ElMessage.success('成员已添加')
+      ElMessage.success(t('members.createSuccess'))
     }
     dialogVisible.value = false
     pendingAuthPassword.value = ''
     await fetchMembers()
   } catch (e) {
-    const msg = e.response?.data?.message || '保存失败，请稍后重试'
+    const msg = e.response?.data?.message || t('members.saveFailed')
     ElMessage.error(msg)
-    // If server requires auth password for new parent (same-person child exists),
-    // show the auth dialog so the user can supply it and retry
     if (e.response?.status === 403 && !editingId.value) {
       authAction.value = { type: 'edit', row: null }
       authPassword.value = ''
@@ -860,9 +1098,9 @@ async function handleSave() {
 async function handleDelete(row) {
   try {
     await ElMessageBox.confirm(
-      `确定要删除成员「${getMemberDisplayName(row)}」吗？`,
-      '删除确认',
-      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+      t('members.deleteConfirmMsg', { name: getMemberDisplayName(row) }),
+      t('members.deleteConfirmTitle'),
+      { type: 'warning', confirmButtonText: t('members.deleteBtn'), cancelButtonText: t('common.cancel') }
     )
     // All deletions require auth password
     authAction.value = { type: 'delete', row }
