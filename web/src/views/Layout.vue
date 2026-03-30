@@ -14,38 +14,41 @@
       >
         <el-menu-item index="/dashboard">
           <el-icon><Odometer /></el-icon>
-          <span>仪表盘</span>
+          <span>{{ t('nav.dashboard') }}</span>
         </el-menu-item>
         <el-menu-item index="/members">
           <el-icon><User /></el-icon>
-          <span>家庭成员</span>
+          <span>{{ t('nav.members') }}</span>
         </el-menu-item>
         <el-menu-item index="/rules">
           <el-icon><List /></el-icon>
-          <span>惩戒规则</span>
+          <span>{{ t('nav.rules') }}</span>
         </el-menu-item>
         <el-menu-item index="/records">
           <el-icon><Document /></el-icon>
-          <span>惩戒记录</span>
+          <span>{{ t('nav.records') }}</span>
         </el-menu-item>
         <el-menu-item index="/cases">
           <el-icon><Folder /></el-icon>
-          <span>案件管理</span>
+          <span>{{ t('nav.cases') }}</span>
         </el-menu-item>
         <el-menu-item index="/settings">
           <el-icon><Setting /></el-icon>
-          <span>系统设置</span>
+          <span>{{ t('nav.settings') }}</span>
         </el-menu-item>
       </el-menu>
     </el-aside>
 
     <el-container>
       <el-header class="header">
-        <span class="title">家庭惩戒管理系统</span>
-        <el-button type="danger" plain size="small" @click="handleLogout">
-          <el-icon><SwitchButton /></el-icon>
-          退出登录
-        </el-button>
+        <span class="title">{{ t('app.title') }}</span>
+        <div style="display: flex; align-items: center; gap: 8px">
+          <el-button size="small" plain @click="toggleLang">{{ t('lang.toggle') }}</el-button>
+          <el-button type="danger" plain size="small" @click="handleLogout">
+            <el-icon><SwitchButton /></el-icon>
+            {{ t('nav.logout') }}
+          </el-button>
+        </div>
       </el-header>
       <el-main class="main-content">
         <router-view />
@@ -57,11 +60,19 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 
 const route = useRoute()
 const router = useRouter()
+const { t, locale } = useI18n()
 
 const activeMenu = computed(() => route.path)
+
+function toggleLang() {
+  const next = locale.value === 'zh-CN' ? 'en-US' : 'zh-CN'
+  locale.value = next
+  localStorage.setItem('fmps_lang', next)
+}
 
 function handleLogout() {
   localStorage.removeItem('fmps_token')

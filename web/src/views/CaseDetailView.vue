@@ -4,9 +4,9 @@
     <el-card shadow="never" style="margin-bottom:16px">
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-weight:600">案件详情</span>
+          <span style="font-weight:600">{{ t('caseDetail.title') }}</span>
           <div>
-            <el-button @click="$router.back()" size="small">返回</el-button>
+            <el-button @click="$router.back()" size="small">{{ t('common.back') }}</el-button>
             <!-- Start execution: only when status=pending and all prep items checked -->
             <el-button
               v-if="caseData.status === 'pending'"
@@ -15,7 +15,7 @@
               :loading="actionLoading"
               :disabled="!allPrepChecked"
               @click="handleStart"
-            >{{ allPrepChecked ? '开始执行' : '请先确认准备物品' }}</el-button>
+            >{{ allPrepChecked ? t('caseDetail.startBtn') : t('caseDetail.waitingPrep') }}</el-button>
             <!-- Force complete (legacy / skip) -->
             <el-button
               v-if="caseData.status === 'active'"
@@ -23,7 +23,7 @@
               size="small"
               :loading="actionLoading"
               @click="handleComplete"
-            >结束惩罚</el-button>
+            >{{ t('caseDetail.completeBtn') }}</el-button>
           </div>
         </div>
       </template>
@@ -50,8 +50,8 @@
     <el-card v-if="caseData.status === 'pending' && prepItems.length > 0" shadow="never" style="margin-bottom:16px">
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-weight:600">准备阶段</span>
-          <span style="font-size:13px;color:#606266">已确认 {{ checkedCount }} / {{ prepItems.length }} 项</span>
+          <span style="font-weight:600">{{ t('caseDetail.prepPhase') }}</span>
+          <span style="font-size:13px;color:#606266">{{ t('caseDetail.prepConfirmed', { checked: checkedCount, total: prepItems.length }) }}</span>
         </div>
       </template>
       <div style="padding:4px 0">
@@ -67,7 +67,7 @@
         </div>
       </div>
       <div style="margin-top:12px;color:#909399;font-size:13px">
-        请逐项确认所有准备物品已就位，全部确认后方可开始执行。
+        {{ t('caseDetail.prepHint') }}
       </div>
     </el-card>
 
@@ -75,10 +75,10 @@
     <el-card v-if="caseData.status === 'active' && parsedSteps.length > 0" shadow="never" style="margin-bottom:16px">
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-weight:600">执行阶段</span>
+          <span style="font-weight:600">{{ t('caseDetail.execPhase') }}</span>
           <span style="color:#f56c6c;font-weight:600;font-size:16px">
-            已扣：{{ totalDeducted }} 分
-            <el-tag :type="gradeTagType(currentGrade)" size="small" style="margin-left:8px">当前成绩：{{ currentGrade }}</el-tag>
+            {{ t('caseDetail.deducted', { pts: totalDeducted }) }}
+            <el-tag :type="gradeTagType(currentGrade)" size="small" style="margin-left:8px">{{ t('caseDetail.currentGrade', { grade: currentGrade }) }}</el-tag>
           </span>
         </div>
       </template>
@@ -97,7 +97,7 @@
       <el-card shadow="hover" style="border:2px solid #409eff;background:#ecf5ff;margin-bottom:12px">
         <div style="display:flex;align-items:flex-start;gap:12px">
           <el-tag type="primary" size="large" style="flex-shrink:0;font-size:16px;padding:0 12px">
-            步骤 {{ (caseData.current_step_index ?? 0) + 1 }}
+            {{ t('caseDetail.stepLabel', { n: (caseData.current_step_index ?? 0) + 1 }) }}
           </el-tag>
           <div style="flex:1">
             <div style="font-size:15px;font-weight:500;margin-bottom:12px;line-height:1.6">
@@ -107,7 +107,7 @@
               <!-- Deduct button: quick amounts -->
               <el-button type="danger" size="small" @click="openDeductDialog()">
                 <el-icon><Minus /></el-icon>
-                扣分
+                {{ t('caseDetail.deductBtn') }}
               </el-button>
               <el-button
                 type="success"
@@ -116,7 +116,7 @@
                 @click="handleCompleteStep"
               >
                 <el-icon><Check /></el-icon>
-                {{ isLastStep ? '完成全部步骤' : '完成此步骤' }}
+                {{ isLastStep ? t('caseDetail.completeAll') : t('caseDetail.completeStep') }}
               </el-button>
             </div>
           </div>
@@ -125,7 +125,7 @@
 
       <!-- Completed steps summary -->
       <div v-if="caseData.current_step_index > 0" style="margin-top:8px">
-        <div style="font-size:12px;color:#909399;margin-bottom:6px">已完成步骤：</div>
+        <div style="font-size:12px;color:#909399;margin-bottom:6px">{{ t('caseDetail.completedSteps') }}</div>
         <div v-for="i in caseData.current_step_index" :key="i" style="font-size:12px;color:#909399;padding:2px 0">
           <el-icon style="color:#67c23a"><CircleCheck /></el-icon>
           {{ parsedSteps[i - 1] }}
@@ -137,7 +137,7 @@
     <el-card v-if="caseData.status === 'active' && parsedSteps.length === 0 && steps.length > 0" shadow="never" style="margin-bottom:16px">
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-weight:600">惩罚过程</span>
+          <span style="font-weight:600">{{ t('caseDetail.legacyExecPhase') }}</span>
           <span style="color:#f56c6c;font-weight:600">
             已扣：{{ totalDeducted }} 分
             <el-tag :type="gradeTagType(currentGrade)" size="small" style="margin-left:8px">{{ currentGrade }}</el-tag>
@@ -185,7 +185,7 @@
     <!-- Phase 3: Completed -->
     <el-card v-if="caseData.status === 'completed'" shadow="never" style="margin-bottom:16px">
       <template #header>
-        <span style="font-weight:600">惩罚归档</span>
+        <span style="font-weight:600">{{ t('caseDetail.completedPhase') }}</span>
       </template>
       <el-descriptions :column="2" border>
         <el-descriptions-item label="惩罚级别">{{ caseData.punishment_level ? caseData.punishment_level + '级' : '-' }}</el-descriptions-item>
@@ -204,7 +204,7 @@
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
           <span style="font-weight:600">扣分记录</span>
-          <span style="color:#f56c6c;font-weight:600">合计扣分：{{ totalDeducted }} 分</span>
+          <span style="color:#f56c6c;font-weight:600">{{ t('caseDetail.deducted', { pts: totalDeducted }) }}</span>
         </div>
       </template>
       <el-table :data="penalties" stripe style="width:100%">
@@ -234,16 +234,16 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="penalties.length === 0" description="暂无扣分记录" />
+      <el-empty v-if="penalties.length === 0" :description="t('caseDetail.noSteps')" />
     </el-card>
 
     <!-- Deduct dialog -->
-    <el-dialog v-model="deductVisible" title="扣分" width="440px">
+    <el-dialog v-model="deductVisible" :title="t('caseDetail.deductDialogTitle')" width="440px">
       <el-form :model="deductForm" label-width="90px">
-        <el-form-item label="扣分原因">
-          <el-input v-model="deductForm.ruleText" placeholder="请输入扣分原因" />
+        <el-form-item :label="t('caseDetail.deductReason')">
+          <el-input v-model="deductForm.ruleText" :placeholder="t('caseDetail.deductReasonPlaceholder')" />
         </el-form-item>
-        <el-form-item label="扣分分值">
+        <el-form-item :label="t('caseDetail.deductPoints')">
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
             <el-button
               v-for="v in quickDeductValues"
@@ -265,8 +265,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="deductVisible = false">取 消</el-button>
-        <el-button type="danger" :loading="deductLoading" @click="handleDeduct">确认扣分</el-button>
+        <el-button @click="deductVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="danger" :loading="deductLoading" @click="handleDeduct">{{ t('caseDetail.deductBtn') }}</el-button>
       </template>
     </el-dialog>
 
@@ -281,8 +281,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="revokeVisible = false">取 消</el-button>
-        <el-button type="primary" :loading="revokeLoading" @click="handleRevoke">确 定</el-button>
+        <el-button @click="revokeVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="revokeLoading" @click="handleRevoke">{{ t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -293,7 +293,10 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Minus, Check, CircleCheck } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import { getCase, startPunishment, completePunishment, completeStep, addPenalty, revokePenalty } from '@/utils/api'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const caseId = route.params.id

@@ -1,9 +1,9 @@
 <template>
   <div>
     <el-row :gutter="20" class="stat-row">
-      <el-col :span="6" v-for="card in statCards" :key="card.label">
+      <el-col :span="6" v-for="card in statCards" :key="card.key">
         <el-card shadow="hover" class="stat-card">
-          <el-statistic :title="card.label" :value="card.value">
+          <el-statistic :title="t(card.labelKey)" :value="card.value">
             <template #prefix>
               <el-icon :color="card.color" :size="20">
                 <component :is="card.icon" />
@@ -16,7 +16,7 @@
 
     <el-card shadow="never" style="margin-top: 20px">
       <template #header>
-        <span style="font-weight: 600">最近惩戒记录</span>
+        <span style="font-weight: 600">{{ t('dashboard.recentRecords') }}</span>
       </template>
       <el-table
         :data="recentRecords"
@@ -24,15 +24,15 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="member_name" label="成员姓名" />
-        <el-table-column prop="rule_name" label="违规项目" />
-        <el-table-column prop="points" label="分值" width="80">
+        <el-table-column prop="member_name" :label="t('dashboard.colMemberName')" />
+        <el-table-column prop="rule_name" :label="t('dashboard.colViolation')" />
+        <el-table-column prop="points" :label="t('dashboard.colPoints')" width="80">
           <template #default="{ row }">
             <el-tag type="danger">{{ row.points }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="note" label="备注" show-overflow-tooltip />
-        <el-table-column prop="occurred_at" label="发生时间" width="160">
+        <el-table-column prop="note" :label="t('dashboard.colNote')" show-overflow-tooltip />
+        <el-table-column prop="occurred_at" :label="t('dashboard.colOccurredAt')" width="160">
           <template #default="{ row }">
             {{ formatDate(row.occurred_at) }}
           </template>
@@ -43,18 +43,24 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { getStats, getRecords } from '@/utils/api'
 
+const { t } = useI18n()
 const loading = ref(false)
-const stats = ref({ member_count: 0, rule_count: 0, record_count: 0, total_points: 0 })
 const recentRecords = ref([])
 
-const statCards = ref([
-  { label: '家庭成员数', value: 0, icon: 'User', color: '#409EFF' },
-  { label: '规则数量', value: 0, icon: 'List', color: '#67C23A' },
-  { label: '记录总数', value: 0, icon: 'Document', color: '#E6A23C' },
-  { label: '累计分值', value: 0, icon: 'TrendCharts', color: '#F56C6C' }
+const memberCount = ref(0)
+const ruleCount = ref(0)
+const recordCount = ref(0)
+const totalPoints = ref(0)
+
+const statCards = computed(() => [
+  { key: 'members', labelKey: 'dashboard.memberCount', value: memberCount.value, icon: 'User', color: '#409EFF' },
+  { key: 'rules', labelKey: 'dashboard.ruleCount', value: ruleCount.value, icon: 'List', color: '#67C23A' },
+  { key: 'records', labelKey: 'dashboard.recordCount', value: recordCount.value, icon: 'Document', color: '#E6A23C' },
+  { key: 'points', labelKey: 'dashboard.totalPoints', value: totalPoints.value, icon: 'TrendCharts', color: '#F56C6C' },
 ])
 
 function formatDate(dateStr) {
@@ -73,10 +79,10 @@ async function loadData() {
       getRecords({ limit: 10 })
     ])
     const s = statsRes.data
-    statCards.value[0].value = s.member_count ?? 0
-    statCards.value[1].value = s.rule_count ?? 0
-    statCards.value[2].value = s.record_count ?? 0
-    statCards.value[3].value = s.total_points ?? 0
+    memberCount.value = s.member_count ?? 0
+    ruleCount.value = s.rule_count ?? 0
+    recordCount.value = s.record_count ?? 0
+    totalPoints.value = s.total_points ?? 0
     recentRecords.value = recordsRes.data?.records ?? recordsRes.data ?? []
   } catch (e) {
     console.error(e)
