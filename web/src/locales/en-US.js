@@ -187,8 +187,8 @@ export default {
     deleteConfirmTitle: 'Confirm Delete',
     deleteConfirmMsg: 'Are you sure you want to delete member "{name}"?',
     deleteBtn: 'Delete',
-    genderMale: '男',
-    genderFemale: '女',
+    genderMale: 'Male',
+    genderFemale: 'Female',
   },
 
   rules: {
