@@ -23,9 +23,21 @@
           {{ getMemberName(row.child_member) }}
         </template>
       </el-table-column>
+      <el-table-column label="级别" width="70">
+        <template #default="{ row }">
+          <el-tag v-if="row.punishment_level" size="small" type="danger">{{ row.punishment_level }}级</el-tag>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="status" label="状态" width="100">
         <template #default="{ row }">
           <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="成绩" width="100">
+        <template #default="{ row }">
+          <el-tag v-if="row.final_grade" :type="gradeTagType(row.final_grade)" size="small">{{ row.final_grade }}</el-tag>
+          <span v-else>-</span>
         </template>
       </el-table-column>
       <el-table-column prop="created_at" label="创建时间" width="160">
@@ -45,7 +57,7 @@
   <el-dialog
     v-model="dialogVisible"
     :title="editingId ? '编辑案件' : '新建案件'"
-    width="600px"
+    width="640px"
     @closed="resetForm"
   >
     <el-form ref="formRef" :model="form" :rules="formRules" label-width="100px">
@@ -75,13 +87,28 @@
       <el-form-item label="描述">
         <el-input v-model="form.description" type="textarea" :rows="2" placeholder="案件描述（可选）" />
       </el-form-item>
-      <el-form-item label="惩罚过程">
+
+      <!-- Punishment workflow section -->
+      <el-divider content-position="left">惩罚流程</el-divider>
+
+      <el-form-item label="惩罚级别" prop="punishment_level">
+        <el-radio-group v-model="form.punishment_level">
+          <el-radio-button value="A">A级</el-radio-button>
+          <el-radio-button value="B">B级</el-radio-button>
+          <el-radio-button value="C">C级</el-radio-button>
+          <el-radio-button value="D">D级</el-radio-button>
+        </el-radio-group>
+      </el-form-item>
+
+      <el-form-item label="导入TXT">
         <div style="width:100%">
-          <div style="display:flex;gap:8px;margin-bottom:6px">
-            <el-button size="small" @click="triggerTxtImport">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+            <el-button size="small" @click="triggerTxtImport" :disabled="!form.punishment_level">
               <el-icon><Upload /></el-icon>
-              从TXT导入
+              选择TXT文件
             </el-button>
+            <span v-if="form.txt_filename" style="font-size:12px;color:#606266">{{ form.txt_filename }}</span>
+            <span v-if="!form.punishment_level" style="font-size:12px;color:#f56c6c">请先选择惩罚级别</span>
             <input
               ref="txtFileInput"
               type="file"
@@ -90,14 +117,27 @@
               @change="handleTxtImport"
             />
           </div>
-          <el-input
-            v-model="form.punishment_process"
-            type="textarea"
-            :rows="8"
-            placeholder="每行一条步骤，格式：开始时间|持续分钟|惩罚内容|要求1~5（可空）|扣分规则|扣分值"
-          />
+
+          <!-- Parsed preview -->
+          <div v-if="parsedPreview.prepItems.length || parsedPreview.steps.length">
+            <div v-if="parsedPreview.prepItems.length" style="margin-bottom:8px">
+              <div style="font-weight:600;font-size:13px;margin-bottom:4px">准备物品（{{ parsedPreview.prepItems.length }}项）：</div>
+              <el-tag
+                v-for="(item, i) in parsedPreview.prepItems"
+                :key="i"
+                size="small"
+                style="margin-right:6px;margin-bottom:4px"
+              >{{ item }}</el-tag>
+            </div>
+            <div v-if="parsedPreview.steps.length">
+              <div style="font-weight:600;font-size:13px;margin-bottom:4px">执行步骤（{{ parsedPreview.steps.length }}步）：</div>
+              <div v-for="(step, i) in parsedPreview.steps" :key="i" style="font-size:12px;color:#606266;margin-bottom:2px">
+                {{ i + 1 }}. {{ step }}
+              </div>
+            </div>
+          </div>
           <div style="font-size:12px;color:#909399;margin-top:4px">
-            格式：开始时间|持续分钟|惩罚内容|要求1~5（可空）|扣分规则|扣分值
+            TXT文件会按选定级别自动解析出准备物品和执行步骤
           </div>
         </div>
       </el-form-item>
@@ -114,7 +154,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Upload } from '@element-plus/icons-vue'
-import { getCases, createCase, updateCase, deleteCase, getMembers } from '@/utils/api'
+import { getCases, createCase, updateCase, deleteCase, getMembers, parseCaseTxt } from '@/utils/api'
 
 const router = useRouter()
 const loading = ref(false)
@@ -126,11 +166,17 @@ const editingId = ref(null)
 const formRef = ref(null)
 const txtFileInput = ref(null)
 
+const parsedPreview = reactive({ prepItems: [], steps: [] })
+
 const defaultForm = () => ({
   title: '',
   parent_member_id: null,
   child_member_id: null,
   description: '',
+  punishment_level: '',
+  prep_items: '',
+  parsed_steps: '',
+  txt_filename: '',
   punishment_process: ''
 })
 const form = reactive(defaultForm())
@@ -151,7 +197,6 @@ const formRules = computed(() => ({
     {
       validator: (rule, value, callback) => {
         if (value && form.parent_member_id) {
-          // Check same person (by member ID - server will also check by name+birthdate)
           if (value === form.parent_member_id) {
             callback(new Error('家长和小孩不能是同一条记录'))
             return
@@ -161,7 +206,8 @@ const formRules = computed(() => ({
       },
       trigger: 'change'
     }
-  ]
+  ],
+  punishment_level: [{ required: true, message: '请选择惩罚级别', trigger: 'change' }]
 }))
 
 function getMemberName(m) {
@@ -174,6 +220,10 @@ function statusLabel(s) {
 }
 function statusTagType(s) {
   return { pending: 'info', active: 'success', completed: '' }[s] ?? 'info'
+}
+function gradeTagType(g) {
+  const map = { '满分': 'success', '优': 'success', '良': '', '达标': 'warning', '不达标': 'danger', '态度不端正': 'danger' }
+  return map[g] ?? 'info'
 }
 function formatDate(d) {
   if (!d) return '-'
@@ -195,13 +245,26 @@ async function load() {
 
 function openDialog(row = null) {
   Object.assign(form, defaultForm())
+  parsedPreview.prepItems = []
+  parsedPreview.steps = []
   if (row) {
     editingId.value = row.id
     form.title = row.title ?? ''
     form.parent_member_id = row.parent_member_id || null
     form.child_member_id = row.child_member_id || null
     form.description = row.description ?? ''
+    form.punishment_level = row.punishment_level ?? ''
+    form.prep_items = row.prep_items ?? ''
+    form.parsed_steps = row.parsed_steps ?? ''
+    form.txt_filename = row.txt_filename ?? ''
     form.punishment_process = row.punishment_process ?? ''
+    // Restore preview from saved data
+    if (form.prep_items) {
+      try { parsedPreview.prepItems = JSON.parse(form.prep_items) } catch { /* ignore */ }
+    }
+    if (form.parsed_steps) {
+      try { parsedPreview.steps = JSON.parse(form.parsed_steps) } catch { /* ignore */ }
+    }
   } else {
     editingId.value = null
   }
@@ -211,6 +274,8 @@ function openDialog(row = null) {
 function resetForm() {
   formRef.value?.resetFields()
   editingId.value = null
+  parsedPreview.prepItems = []
+  parsedPreview.steps = []
 }
 
 function triggerTxtImport() {
@@ -221,15 +286,30 @@ function handleTxtImport(event) {
   const file = event.target.files?.[0]
   if (!file) return
   const reader = new FileReader()
-  reader.onload = (e) => {
-    form.punishment_process = e.target?.result ?? ''
-    ElMessage.success('已成功导入惩罚过程文本')
+  reader.onload = async (e) => {
+    const content = e.target?.result ?? ''
+    form.txt_filename = file.name
+    // Store raw content for legacy compatibility
+    form.punishment_process = content
+    // Parse via backend
+    try {
+      const res = await parseCaseTxt({ content, level: form.punishment_level, txt_filename: file.name })
+      const data = res.data
+      const prepItems = data.prep_items ?? []
+      const steps = data.steps ?? []
+      parsedPreview.prepItems = prepItems
+      parsedPreview.steps = steps
+      form.prep_items = JSON.stringify(prepItems)
+      form.parsed_steps = JSON.stringify(steps)
+      ElMessage.success(`已解析：${prepItems.length} 项准备物品，${steps.length} 个执行步骤`)
+    } catch (err) {
+      ElMessage.error(err.response?.data?.message || 'TXT解析失败')
+    }
   }
   reader.onerror = () => {
     ElMessage.error('文件读取失败')
   }
   reader.readAsText(file, 'utf-8')
-  // Reset input so same file can be selected again
   event.target.value = ''
 }
 
@@ -274,3 +354,4 @@ function goDetail(row) {
 
 onMounted(load)
 </script>
+
