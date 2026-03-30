@@ -96,7 +96,7 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item label="出生日期" prop="birth_date">
+        <el-form-item label="出生日期" prop="birth_date" :error="birthDateError">
           <el-date-picker
             v-model="form.birth_date"
             type="date"
@@ -129,7 +129,7 @@
           <el-input v-model="form.id_doc_number" placeholder="请输入证件号码（必填）" />
         </el-form-item>
 
-        <el-form-item label="签发日期" prop="id_issue_date">
+        <el-form-item label="签发日期" prop="id_issue_date" :error="issueDateError">
           <el-date-picker
             v-model="form.id_issue_date"
             type="date"
@@ -139,7 +139,7 @@
           />
         </el-form-item>
 
-        <el-form-item label="有效期" prop="id_expiry_date">
+        <el-form-item label="有效期" prop="id_expiry_date" :error="expiryDateError">
           <el-date-picker
             v-model="form.id_expiry_date"
             type="date"
@@ -364,10 +364,16 @@ import {
   CLASSES,
   getAvailableCountries,
   validateIDNumber,
-  validateNationalityDocType
+  validateNationalityDocType,
+  validateBirthDate,
+  validateIssueDate,
+  validateExpiryDate
 } from '@/utils/constants'
+import { useI18n } from '@/utils/i18n'
 
 // ─── State ───────────────────────────────────────────────────────────────────
+
+const i18n = useI18n()
 
 const members = ref([])
 const loading = ref(false)
@@ -385,6 +391,11 @@ const authAction = ref(null)   // { type: 'edit'|'delete', row: ... }
 const idDocNumberError = ref('')
 const aux1DocNumberError = ref('')
 const aux2DocNumberError = ref('')
+
+// Date validation error refs (i18n key or empty string)
+const birthDateError = ref('')
+const issueDateError = ref('')
+const expiryDateError = ref('')
 
 const outingDatesArray = ref([])
 const outingTimeRanges = ref([])
@@ -540,6 +551,41 @@ watch(
     aux2DocNumberError.value = validateIDNumber(docType, number, nationality, { birthDate, gender }) || ''
   }
 )
+
+// Date validation watchers
+watch(
+  () => form.birth_date,
+  (val) => {
+    const key = validateBirthDate(val)
+    birthDateError.value = key ? i18n.t(key) : ''
+  }
+)
+
+watch(
+  () => form.id_issue_date,
+  (val) => {
+    const key = validateIssueDate(val)
+    issueDateError.value = key ? i18n.t(key) : ''
+    // Re-validate expiry whenever issue date changes
+    _revalidateExpiry()
+  }
+)
+
+watch(
+  () => [form.id_expiry_date, form.id_doc_type, form.birth_date, form.id_issue_date, form.role],
+  () => { _revalidateExpiry() }
+)
+
+function _revalidateExpiry() {
+  const key = validateExpiryDate(
+    form.id_expiry_date,
+    form.id_doc_type,
+    form.birth_date,
+    form.id_issue_date,
+    form.role
+  )
+  expiryDateError.value = key ? i18n.t(key) : ''
+}
 
 // Track whether name_en was manually edited to avoid overwriting user input
 const nameEnManuallyEdited = ref(false)
@@ -798,6 +844,9 @@ function resetForm() {
   idDocNumberError.value = ''
   aux1DocNumberError.value = ''
   aux2DocNumberError.value = ''
+  birthDateError.value = ''
+  issueDateError.value = ''
+  expiryDateError.value = ''
   nameEnManuallyEdited.value = false
   pendingAuthPassword.value = ''
   formRef.value?.resetFields()
@@ -822,6 +871,20 @@ async function handleSave() {
   }
   if (aux2DocNumberError.value) {
     ElMessage.error('辅助证件2号码格式有误，请修正后保存')
+    return
+  }
+
+  // Block save if date validations fail
+  if (birthDateError.value) {
+    ElMessage.error(birthDateError.value)
+    return
+  }
+  if (issueDateError.value) {
+    ElMessage.error(issueDateError.value)
+    return
+  }
+  if (expiryDateError.value) {
+    ElMessage.error(expiryDateError.value)
     return
   }
 

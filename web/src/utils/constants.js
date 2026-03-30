@@ -563,3 +563,300 @@ export const GRADES = [
 
 // 班级选项（1-40）
 export const CLASSES = Array.from({ length: 40 }, (_, i) => String(i + 1))
+
+// ─── Date validation helpers ─────────────────────────────────────────────────
+
+/**
+ * Parse a YYYY-MM-DD string into { y, m, d }.  Returns null on failure.
+ */
+function parseYMD(dateStr) {
+  if (!dateStr) return null
+  const parts = String(dateStr).split('-')
+  if (parts.length !== 3) return null
+  const y = parseInt(parts[0], 10)
+  const m = parseInt(parts[1], 10)
+  const d = parseInt(parts[2], 10)
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return null
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null
+  return { y, m, d }
+}
+
+/** Return today as { y, m, d } in local time. */
+function getTodayYMD() {
+  const now = new Date()
+  return { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() }
+}
+
+/**
+ * Compare two { y, m, d } objects.
+ * Returns negative if a < b, 0 if equal, positive if a > b.
+ */
+function compareYMD(a, b) {
+  if (a.y !== b.y) return a.y - b.y
+  if (a.m !== b.m) return a.m - b.m
+  return a.d - b.d
+}
+
+/** Return true if year is a leap year. */
+function isLeapYear(year) {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
+}
+
+/** Return the number of days in a given month. */
+function daysInMonth(year, month) {
+  if (month === 2) return isLeapYear(year) ? 29 : 28
+  return [4, 6, 9, 11].includes(month) ? 30 : 31
+}
+
+/**
+ * Calculate the age at a given date.
+ *
+ * Feb 29 birthday handling (feb29IsMar1 = true, default):
+ *   The age milestone falls on Mar 1 in non-leap years.
+ *   This means: if asOf (the date being evaluated) is before Mar 1 of the current
+ *   age-year for a Feb-29-born person, the age has not yet been reached.
+ *   When asOf itself is Feb 29 of a leap year, Feb 29 < Mar 1, so the age is
+ *   still counted as not yet reached — matching the regulation for type 01.
+ *
+ * @param {{ y, m, d }} birth
+ * @param {{ y, m, d }} asOf
+ * @param {boolean} [feb29IsMar1=true]
+ * @returns {number}
+ */
+function calcAge(birth, asOf, feb29IsMar1 = true) {
+  let age = asOf.y - birth.y
+  const isBirthFeb29 = birth.m === 2 && birth.d === 29
+
+  if (isBirthFeb29 && feb29IsMar1) {
+    // Milestone is Mar 1; anything before Mar 1 means age not yet reached
+    if (asOf.m < 3) age--
+  } else {
+    const bm = isBirthFeb29 ? 3 : birth.m
+    const bd = isBirthFeb29 ? 1 : birth.d
+    if (asOf.m < bm || (asOf.m === bm && asOf.d < bd)) age--
+  }
+  return age
+}
+
+/**
+ * Add `years` years to a { y, m, d }, keeping the same month/day.
+ * If the original date is Feb 29 and the target year has no Feb 29, use Mar 1.
+ */
+function addYearsSameDay(d, years) {
+  const targetYear = d.y + years
+  if (d.m === 2 && d.d === 29 && !isLeapYear(targetYear)) {
+    return { y: targetYear, m: 3, d: 1 }
+  }
+  return { y: targetYear, m: d.m, d: d.d }
+}
+
+/**
+ * Subtract one calendar day from { y, m, d }.
+ */
+function subtractOneDay(d) {
+  let { y, m } = d
+  let day = d.d - 1
+  if (day < 1) {
+    m--
+    if (m < 1) { m = 12; y-- }
+    day = daysInMonth(y, m)
+  }
+  return { y, m, d: day }
+}
+
+/**
+ * Add `years` years then subtract 1 day (used by types 31/02/03/52/04).
+ * Feb 29 issue date: addYearsSameDay may map to Mar 1, then -1 day = Feb 28.
+ */
+function addYearsMinusOneDay(d, years) {
+  return subtractOneDay(addYearsSameDay(d, years))
+}
+
+/** Format { y, m, d } as YYYY-MM-DD string. */
+function ymdToStr(d) {
+  return `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`
+}
+
+// ─── Public date validation functions ────────────────────────────────────────
+
+/**
+ * Validate a birthdate string (YYYY-MM-DD).
+ * Rules: must be strictly before today; must not be more than 100 years ago.
+ * Returns null if valid, or an i18n error key string on failure.
+ *
+ * @param {string} dateStr
+ * @returns {string|null}
+ */
+export function validateBirthDate(dateStr) {
+  if (!dateStr) return null
+  const bd = parseYMD(dateStr)
+  if (!bd) return 'invalidBirthDate'
+  const today = getTodayYMD()
+  // Must be strictly before today
+  if (compareYMD(bd, today) >= 0) return 'invalidBirthDate'
+  // Must not be older than 100 years (person must be at most 100 years old today)
+  const centuryAgo = { y: today.y - 100, m: today.m, d: today.d }
+  if (compareYMD(bd, centuryAgo) < 0) return 'invalidBirthDate'
+  return null
+}
+
+/**
+ * Validate a document issue date string (YYYY-MM-DD).
+ * Rules: must be today or earlier; must be within the past 20 years.
+ * Returns null if valid, or an i18n error key string on failure.
+ *
+ * @param {string} dateStr
+ * @returns {string|null}
+ */
+export function validateIssueDate(dateStr) {
+  if (!dateStr) return null
+  const id = parseYMD(dateStr)
+  if (!id) return 'invalidIssueDate'
+  const today = getTodayYMD()
+  // Must not be in the future
+  if (compareYMD(id, today) > 0) return 'invalidIssueDate'
+  // Must be within the past 20 years
+  const twentyYearsAgo = { y: today.y - 20, m: today.m, d: today.d }
+  if (compareYMD(id, twentyYearsAgo) < 0) return 'invalidIssueDate'
+  return null
+}
+
+/**
+ * Validate the expiry date for a document.
+ * Returns null if valid, or an i18n error key string on failure.
+ *
+ * @param {string} expiryDateStr   - YYYY-MM-DD
+ * @param {string} docType         - e.g. '01', '91', '11', …
+ * @param {string} birthDateStr    - YYYY-MM-DD
+ * @param {string} issueDateStr    - YYYY-MM-DD
+ * @param {string} role            - 'parent' | 'child'
+ * @returns {string|null}
+ */
+export function validateExpiryDate(expiryDateStr, docType, birthDateStr, issueDateStr, role) {
+  if (!expiryDateStr || !docType || !birthDateStr || !issueDateStr) return null
+
+  const expiry = parseYMD(expiryDateStr)
+  const birth = parseYMD(birthDateStr)
+  const issue = parseYMD(issueDateStr)
+  const today = getTodayYMD()
+
+  if (!expiry || !birth || !issue) return 'invalidExpiryDate'
+
+  // ── Special handling for type 91 ───────────────────────────────────────────
+  // Expiry must equal the member's 16th birthday exactly.
+  // Per the domain rule, a person born on Feb 29 will always have a leap-year
+  // 16th birthday (birth.y + 16 is leap for all valid Feb-29 birth years in scope),
+  // so their 16th birthday date is Feb 29 of that year — handled in _sixteenthBirthday.
+  // If the member is already 16+ today, type 91 may not be used as primary ID.
+  if (docType === '91') {
+    const exp16 = _sixteenthBirthday(birth)
+    if (compareYMD(today, exp16) >= 0) return 'doc91Expired'
+    if (compareYMD(expiry, exp16) !== 0) return 'invalidExpiryDate'
+    return null
+  }
+
+  // ── Generic check: expiry must be strictly after today ─────────────────────
+  if (compareYMD(expiry, today) <= 0) return 'expiryBeforeToday'
+
+  switch (docType) {
+    case '01':  return _validateExpiry01(expiry, birth, issue, role)
+    case '11':
+    case '21':  return _validateExpiry1121(expiry, issue)
+    case '31':
+    case '02':  return _validateExpiry3102(expiry, birth, issue)
+    case '03':
+    case '52':  return _validateExpiry0352(expiry, issue)
+    case '04':  return _validateExpiry04(expiry, birth, issue)
+    case '05':  return _validateExpiry05(expiry, issue)
+    default:    return null
+  }
+}
+
+// ─── Per-type expiry validators ───────────────────────────────────────────────
+
+/**
+ * Type 01 — Resident ID.
+ * Age tiers (at issue date, feb29 = not-yet-reached):
+ *   <16  → 5 y  |  16-25 → 10 y  |  26-45 → 20 y  |  ≥46 → 2099-12-31 (long-term)
+ * Expiry = issue + term, same month/day; Feb 29 issue → Mar 1 if target non-leap.
+ */
+function _validateExpiry01(expiry, birth, issue, role) {
+  const age = calcAge(birth, issue, true) // feb29 milestone = Mar 1
+
+  if (age >= 46) {
+    // Long-term: the only accepted value is 2099-12-31
+    if (expiry.y === 2099 && expiry.m === 12 && expiry.d === 31) return null
+    return 'invalidExpiryDate'
+  }
+
+  let years
+  if (age < 16)       years = 5
+  else if (age < 26)  years = 10
+  else                years = 20
+
+  const expected = addYearsSameDay(issue, years)
+  return compareYMD(expiry, expected) === 0 ? null : 'invalidExpiryDate'
+}
+
+/**
+ * Types 11, 21 — fixed 5-year validity, same month/day.
+ * Feb 29 issue → expiry is Mar 1 of the 5th year.
+ */
+function _validateExpiry1121(expiry, issue) {
+  const expected = addYearsSameDay(issue, 5)
+  return compareYMD(expiry, expected) === 0 ? null : 'invalidExpiryDate'
+}
+
+/**
+ * Types 31, 02 — age-based 5/10 years, expiry = issue + term − 1 day.
+ * Age < 18 at issue → 5 y; age ≥ 18 → 10 y.
+ */
+function _validateExpiry3102(expiry, birth, issue) {
+  const age = calcAge(birth, issue, true)
+  const years = age < 18 ? 5 : 10
+  const expected = addYearsMinusOneDay(issue, years)
+  return compareYMD(expiry, expected) === 0 ? null : 'invalidExpiryDate'
+}
+
+/**
+ * Types 03, 52 — fixed 5-year validity, expiry = issue + 5 y − 1 day.
+ */
+function _validateExpiry0352(expiry, issue) {
+  const expected = addYearsMinusOneDay(issue, 5)
+  return compareYMD(expiry, expected) === 0 ? null : 'invalidExpiryDate'
+}
+
+/**
+ * Type 04 — age-based 5/10 years, expiry = issue + term − 1 day.
+ * Age < 16 at issue → 5 y; age ≥ 16 → 10 y.
+ */
+function _validateExpiry04(expiry, birth, issue) {
+  const age = calcAge(birth, issue, true)
+  const years = age < 16 ? 5 : 10
+  const expected = addYearsMinusOneDay(issue, years)
+  return compareYMD(expiry, expected) === 0 ? null : 'invalidExpiryDate'
+}
+
+/**
+ * Type 05 — country-defined; expiry must not exceed issue + 10 years (same day).
+ */
+function _validateExpiry05(expiry, issue) {
+  const maxExpiry = addYearsSameDay(issue, 10)
+  if (compareYMD(expiry, maxExpiry) > 0) return 'invalidExpiryDate'
+  return null
+}
+
+/**
+ * Compute the 16th-birthday date for doc type 91.
+ * Per the domain specification, a person born on Feb 29 will have their 16th
+ * birthday on Feb 29 of (birth.y + 16).  The specification states this date
+ * always exists for valid Feb-29 birth years used in practice (e.g. 2000→2016,
+ * 2004→2020, 2008→2024 are all leap years).  The function trusts this domain
+ * invariant rather than re-deriving it.
+ */
+function _sixteenthBirthday(birth) {
+  if (birth.m === 2 && birth.d === 29) {
+    return { y: birth.y + 16, m: 2, d: 29 }
+  }
+  return { y: birth.y + 16, m: birth.m, d: birth.d }
+}
