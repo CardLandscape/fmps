@@ -1,9 +1,9 @@
 <template>
   <div>
     <el-row :gutter="20" class="stat-row">
-      <el-col :span="6" v-for="card in statCards" :key="card.label">
+      <el-col :span="6" v-for="card in statCards" :key="card.labelKey">
         <el-card shadow="hover" class="stat-card">
-          <el-statistic :title="card.label" :value="card.value">
+          <el-statistic :title="i18n.t(card.labelKey)" :value="card.value">
             <template #prefix>
               <el-icon :color="card.color" :size="20">
                 <component :is="card.icon" />
@@ -16,7 +16,7 @@
 
     <el-card shadow="never" style="margin-top: 20px">
       <template #header>
-        <span style="font-weight: 600">最近惩戒记录</span>
+        <span style="font-weight: 600">{{ i18n.t('recentRecords') }}</span>
       </template>
       <el-table
         :data="recentRecords"
@@ -24,15 +24,15 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="member_name" label="成员姓名" />
-        <el-table-column prop="rule_name" label="违规项目" />
-        <el-table-column prop="points" label="分值" width="80">
+        <el-table-column :label="i18n.t('colMemberName')" prop="member_name" />
+        <el-table-column :label="i18n.t('colViolation')" prop="rule_name" />
+        <el-table-column :label="i18n.t('colPoints')" prop="points" width="80">
           <template #default="{ row }">
             <el-tag type="danger">{{ row.points }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="note" label="备注" show-overflow-tooltip />
-        <el-table-column prop="occurred_at" label="发生时间" width="160">
+        <el-table-column :label="i18n.t('colNote')" prop="note" show-overflow-tooltip />
+        <el-table-column :label="i18n.t('colOccurredAt')" prop="occurred_at" width="160">
           <template #default="{ row }">
             {{ formatDate(row.occurred_at) }}
           </template>
@@ -45,16 +45,19 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { getStats, getRecords } from '@/utils/api'
+import { useI18n } from '@/utils/i18n'
+
+const i18n = useI18n()
 
 const loading = ref(false)
 const stats = ref({ member_count: 0, rule_count: 0, record_count: 0, total_points: 0 })
 const recentRecords = ref([])
 
 const statCards = ref([
-  { label: '家庭成员数', value: 0, icon: 'User', color: '#409EFF' },
-  { label: '规则数量', value: 0, icon: 'List', color: '#67C23A' },
-  { label: '记录总数', value: 0, icon: 'Document', color: '#E6A23C' },
-  { label: '累计分值', value: 0, icon: 'TrendCharts', color: '#F56C6C' }
+  { labelKey: 'statMembers', value: 0, icon: 'User', color: '#409EFF' },
+  { labelKey: 'statRules', value: 0, icon: 'List', color: '#67C23A' },
+  { labelKey: 'statRecords', value: 0, icon: 'Document', color: '#E6A23C' },
+  { labelKey: 'statPoints', value: 0, icon: 'TrendCharts', color: '#F56C6C' }
 ])
 
 function formatDate(dateStr) {
