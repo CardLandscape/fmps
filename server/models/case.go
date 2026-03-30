@@ -12,8 +12,15 @@ type Case struct {
 	ChildMember       *Member    `gorm:"foreignKey:ChildMemberID" json:"child_member"`
 	Title             string     `json:"title"`
 	Description       string     `json:"description"`
-	PunishmentProcess string     `json:"punishment_process"` // 原始文本，管道符分隔
-	Status            string     `json:"status"`             // pending / active / completed
+	PunishmentProcess string     `json:"punishment_process"` // 原始文本，管道符分隔（兼容旧格式）
+	// Punishment workflow fields
+	PunishmentLevel   string     `json:"punishment_level"`    // A/B/C/D
+	PrepItems         string     `json:"prep_items"`          // JSON array of preparation item strings
+	ParsedSteps       string     `json:"parsed_steps"`        // JSON array of step strings
+	CurrentStepIndex  int        `json:"current_step_index"`  // -1=prep phase, 0+=executing
+	FinalGrade        string     `json:"final_grade"`         // 满分/优/良/达标/不达标/态度不端正
+	TxtFilename       string     `json:"txt_filename"`        // original filename of imported TXT
+	Status            string     `json:"status"`              // pending / active / completed
 	StartTime         *time.Time `json:"start_time"`
 	CreatedAt         time.Time  `json:"created_at"`
 	UpdatedAt         time.Time  `json:"updated_at"`
