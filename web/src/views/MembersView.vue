@@ -117,10 +117,10 @@
             @change="onIdDocTypeChange"
           >
             <el-option
-              v-for="dt in ID_DOC_TYPES"
-              :key="dt.code"
-              :label="dt.name"
-              :value="dt.code"
+              v-for="docType in ID_DOC_TYPES"
+              :key="docType.code"
+              :label="docType.name"
+              :value="docType.code"
             />
           </el-select>
         </el-form-item>
