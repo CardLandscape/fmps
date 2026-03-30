@@ -2,43 +2,43 @@
   <el-card shadow="never">
     <template #header>
       <div style="display: flex; justify-content: space-between; align-items: center">
-        <span style="font-weight: 600">家庭成员管理</span>
+        <span style="font-weight: 600">{{ i18n.t('membersPageTitle') }}</span>
         <el-button type="primary" @click="openDialog()">
           <el-icon><Plus /></el-icon>
-          添加成员
+          {{ i18n.t('btnAddMember') }}
         </el-button>
       </div>
     </template>
 
     <el-table :data="members" v-loading="loading" stripe style="width: 100%">
-      <el-table-column label="姓名">
+      <el-table-column :label="i18n.t('colName')">
         <template #default="{ row }">{{ getMemberDisplayName(row) }}</template>
       </el-table-column>
-      <el-table-column prop="role" label="角色" width="80">
+      <el-table-column prop="role" :label="i18n.t('colRole')" width="80">
         <template #default="{ row }">
           <el-tag :type="row.role === 'child' ? 'warning' : 'success'">
-            {{ row.role === 'child' ? '小孩' : '家长' }}
+            {{ row.role === 'child' ? i18n.t('roleChild') : i18n.t('roleParent') }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="gender" label="性别" width="70" />
-      <el-table-column prop="nationality" label="国籍" width="80" />
-      <el-table-column prop="school_name" label="学校" />
-      <el-table-column prop="outing_permission" label="外出权限" width="90">
+      <el-table-column prop="gender" :label="i18n.t('colGender')" width="70" />
+      <el-table-column prop="nationality" :label="i18n.t('colNationality')" width="80" />
+      <el-table-column prop="school_name" :label="i18n.t('colSchool')" />
+      <el-table-column prop="outing_permission" :label="i18n.t('colOutingPerm')" width="100">
         <template #default="{ row }">
           <el-tag v-if="row.outing_permission" :type="permissionTagType(row.outing_permission)" size="small">
-            {{ row.outing_permission }}
+            {{ outingPermLabel(row.outing_permission) }}
           </el-tag>
           <span v-else>-</span>
         </template>
       </el-table-column>
-      <el-table-column prop="created_at" label="创建时间" width="160">
+      <el-table-column prop="created_at" :label="i18n.t('colCreatedAt')" width="160">
         <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="160" fixed="right">
+      <el-table-column :label="i18n.t('colActions')" width="160" fixed="right">
         <template #default="{ row }">
-          <el-button size="small" type="primary" plain @click="openEditWithAuth(row)">编辑</el-button>
-          <el-button size="small" type="danger" plain @click="handleDelete(row)">删除</el-button>
+          <el-button size="small" type="primary" plain @click="openEditWithAuth(row)">{{ i18n.t('btnEdit') }}</el-button>
+          <el-button size="small" type="danger" plain @click="handleDelete(row)">{{ i18n.t('btnDelete') }}</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -46,43 +46,43 @@
 
   <el-dialog
     v-model="dialogVisible"
-    :title="editingId ? '编辑成员' : '添加成员'"
+    :title="editingId ? i18n.t('dialogEditMember') : i18n.t('dialogAddMember')"
     width="760px"
     @closed="resetForm"
   >
     <div style="max-height: 70vh; overflow-y: auto; padding-right: 8px">
-      <el-form ref="formRef" :model="form" :rules="formRules" label-width="120px">
+      <el-form ref="formRef" :model="form" :rules="formRules" label-width="140px">
 
-        <!-- 基本信息 -->
-        <el-divider content-position="left">基本信息</el-divider>
+        <!-- Basic info -->
+        <el-divider content-position="left">{{ i18n.t('sectionBasicInfo') }}</el-divider>
 
-        <el-form-item label="中文姓名" prop="name_cn">
-          <el-input v-model="form.name_cn" placeholder="请输入中文姓名" />
+        <el-form-item :label="i18n.t('labelNameCn')" prop="name_cn">
+          <el-input v-model="form.name_cn" :placeholder="i18n.t('placeholderNameCn')" />
         </el-form-item>
 
-        <el-form-item label="英文姓名" prop="name_en">
-          <el-input v-model="form.name_en" placeholder="请输入英文姓名（必填，例如：ZHANG XIAOMING）" @input="nameEnManuallyEdited = true" />
+        <el-form-item :label="i18n.t('labelNameEn')" prop="name_en">
+          <el-input v-model="form.name_en" :placeholder="i18n.t('placeholderNameEn')" @input="nameEnManuallyEdited = true" />
         </el-form-item>
 
-        <el-form-item label="角色" prop="role">
-          <el-select v-model="form.role" :disabled="!!editingId" placeholder="请选择角色" style="width: 100%">
-            <el-option label="小孩" value="child" />
-            <el-option label="家长" value="parent" />
+        <el-form-item :label="i18n.t('labelRole')" prop="role">
+          <el-select v-model="form.role" :disabled="!!editingId" :placeholder="i18n.t('placeholderRole')" style="width: 100%">
+            <el-option :label="i18n.t('roleChild')" value="child" />
+            <el-option :label="i18n.t('roleParent')" value="parent" />
           </el-select>
-          <div v-if="editingId" style="font-size:12px;color:#909399;margin-top:2px">成员类型一经确定不可更改</div>
+          <div v-if="editingId" style="font-size:12px;color:#909399;margin-top:2px">{{ i18n.t('roleFixedHint') }}</div>
         </el-form-item>
 
-        <el-form-item label="性别" prop="gender">
+        <el-form-item :label="i18n.t('labelGender')" prop="gender" :error="genderIdError">
           <el-radio-group v-model="form.gender">
             <el-radio value="男">男</el-radio>
             <el-radio value="女">女</el-radio>
           </el-radio-group>
         </el-form-item>
 
-        <el-form-item label="国籍" prop="nationality">
+        <el-form-item :label="i18n.t('labelNationality')" prop="nationality">
           <el-select
             v-model="form.nationality"
-            placeholder="请选择国籍（必填）"
+            :placeholder="i18n.t('placeholderNationality')"
             filterable
             style="width: 100%"
             @change="onNationalityChange"
@@ -96,23 +96,23 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item label="出生日期" prop="birth_date" :error="birthDateError">
+        <el-form-item :label="i18n.t('labelBirthDate')" prop="birth_date" :error="birthDateError">
           <el-date-picker
             v-model="form.birth_date"
             type="date"
-            placeholder="选择出生日期（必填）"
+            :placeholder="i18n.t('placeholderBirthDate')"
             value-format="YYYY-MM-DD"
             style="width: 100%"
           />
         </el-form-item>
 
-        <!-- 主证件 -->
-        <el-divider content-position="left">主证件信息</el-divider>
+        <!-- Primary document -->
+        <el-divider content-position="left">{{ i18n.t('sectionPrimaryDoc') }}</el-divider>
 
-        <el-form-item label="主证件类型" prop="id_doc_type">
+        <el-form-item :label="i18n.t('labelDocType')" prop="id_doc_type">
           <el-select
             v-model="form.id_doc_type"
-            placeholder="请选择证件类型（必填）"
+            :placeholder="i18n.t('placeholderDocType')"
             style="width: 100%"
             @change="onIdDocTypeChange"
           >
@@ -125,39 +125,39 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item label="主证件号码" prop="id_doc_number" :error="idDocNumberError">
-          <el-input v-model="form.id_doc_number" placeholder="请输入证件号码（必填）" />
+        <el-form-item :label="i18n.t('labelDocNumber')" prop="id_doc_number" :error="idDocNumberError">
+          <el-input v-model="form.id_doc_number" :placeholder="i18n.t('placeholderDocNumber')" />
         </el-form-item>
 
-        <el-form-item label="签发日期" prop="id_issue_date" :error="issueDateError">
+        <el-form-item :label="i18n.t('labelIssueDate')" prop="id_issue_date" :error="issueDateError">
           <el-date-picker
             v-model="form.id_issue_date"
             type="date"
-            placeholder="选择签发日期（必填）"
+            :placeholder="i18n.t('placeholderIssueDate')"
             value-format="YYYY-MM-DD"
             style="width: 100%"
           />
         </el-form-item>
 
-        <el-form-item label="有效期" prop="id_expiry_date" :error="expiryDateError">
+        <el-form-item :label="i18n.t('labelExpiryDate')" prop="id_expiry_date" :error="expiryDateError">
           <el-date-picker
             v-model="form.id_expiry_date"
             type="date"
-            placeholder="选择有效期（必填）"
+            :placeholder="i18n.t('placeholderExpiryDate')"
             value-format="YYYY-MM-DD"
             style="width: 100%"
           />
         </el-form-item>
 
-        <el-form-item label="签发机关" prop="id_issue_authority">
-          <el-input v-model="form.id_issue_authority" placeholder="请输入签发机关（必填）" />
+        <el-form-item :label="i18n.t('labelIssueAuth')" prop="id_issue_authority">
+          <el-input v-model="form.id_issue_authority" :placeholder="i18n.t('placeholderIssueAuth')" />
         </el-form-item>
 
-        <!-- 辅助证件（根据主证件类型动态显示） -->
+        <!-- Auxiliary documents (shown based on primary doc type) -->
         <template v-if="showAuxDocs">
-          <el-divider content-position="left">辅助证件信息</el-divider>
+          <el-divider content-position="left">{{ i18n.t('sectionAuxDoc') }}</el-divider>
 
-          <!-- 辅助证件1 -->
+          <!-- Aux doc 1 -->
           <el-form-item :label="aux1Label" prop="aux1_doc_type">
             <el-select
               v-model="form.aux1_doc_type"
@@ -176,16 +176,16 @@
             </el-select>
           </el-form-item>
 
-          <el-form-item label="辅助证件1号码" prop="aux1_doc_number" :error="aux1DocNumberError">
+          <el-form-item :label="i18n.t('labelAux1Number')" prop="aux1_doc_number" :error="aux1DocNumberError">
             <el-input v-model="form.aux1_doc_number" :placeholder="aux1NumPlaceholder" />
           </el-form-item>
 
-          <!-- 辅助证件2 (type 11 or 21) -->
+          <!-- Aux doc 2 (type 11 or 21 only) -->
           <template v-if="showAux2">
-            <el-form-item label="辅助证件2类型" prop="aux2_doc_type">
+            <el-form-item :label="i18n.t('labelAux2Type')" prop="aux2_doc_type">
               <el-select
                 v-model="form.aux2_doc_type"
-                placeholder="请选择辅助证件2类型（必填）"
+                :placeholder="i18n.t('validAux2TypeRequired')"
                 style="width: 100%"
                 @change="onAux2DocTypeChange"
               >
@@ -198,17 +198,17 @@
               </el-select>
             </el-form-item>
 
-            <el-form-item label="辅助证件2号码" prop="aux2_doc_number" :error="aux2DocNumberError">
-              <el-input v-model="form.aux2_doc_number" placeholder="请输入辅助证件2号码（必填）" />
+            <el-form-item :label="i18n.t('labelAux2Number')" prop="aux2_doc_number" :error="aux2DocNumberError">
+              <el-input v-model="form.aux2_doc_number" :placeholder="i18n.t('validAux2NumberRequired')" />
             </el-form-item>
           </template>
 
-          <!-- 主证件04：证明文件补充字段 -->
+          <!-- Primary doc type 04: proof document fields -->
           <template v-if="form.id_doc_type === '04'">
-            <el-form-item label="证明文件类型" prop="proof_doc_type">
+            <el-form-item :label="i18n.t('labelProofDocType')" prop="proof_doc_type">
               <el-select
                 v-model="form.proof_doc_type"
-                placeholder="请选择证明文件类型（必填）"
+                :placeholder="i18n.t('validProofDocTypeRequired')"
                 style="width: 100%"
                 @change="onProofDocTypeChange"
               >
@@ -221,10 +221,10 @@
               </el-select>
             </el-form-item>
 
-            <el-form-item label="签发国家" prop="proof_issue_country">
+            <el-form-item :label="i18n.t('labelProofIssueCountry')" prop="proof_issue_country">
               <el-select
                 v-model="form.proof_issue_country"
-                placeholder="请选择签发国家（必填）"
+                :placeholder="i18n.t('validProofIssueCountryRequired')"
                 filterable
                 style="width: 100%"
                 @change="onProofIssueCountryChange"
@@ -240,57 +240,57 @@
           </template>
         </template>
 
-        <!-- 学校信息 -->
-        <el-divider content-position="left">学校信息</el-divider>
+        <!-- School info -->
+        <el-divider content-position="left">{{ i18n.t('sectionSchool') }}</el-divider>
 
-        <el-form-item label="就读学校" prop="school_name">
-          <el-input v-model="form.school_name" placeholder="请输入就读学校" />
+        <el-form-item :label="i18n.t('labelSchoolName')" prop="school_name">
+          <el-input v-model="form.school_name" :placeholder="i18n.t('placeholderSchoolName')" />
         </el-form-item>
 
-        <el-form-item label="年级" prop="grade">
-          <el-select v-model="form.grade" placeholder="请选择年级" clearable style="width: 100%">
+        <el-form-item :label="i18n.t('labelGrade')" prop="grade">
+          <el-select v-model="form.grade" placeholder="-" clearable style="width: 100%">
             <el-option v-for="g in GRADES" :key="g" :label="g" :value="g" />
           </el-select>
         </el-form-item>
 
-        <el-form-item label="班级" prop="class_name">
-          <el-select v-model="form.class_name" placeholder="请选择班级" clearable style="width: 100%">
+        <el-form-item :label="i18n.t('labelClass')" prop="class_name">
+          <el-select v-model="form.class_name" placeholder="-" clearable style="width: 100%">
             <el-option v-for="c in CLASSES" :key="c" :label="`${c}班`" :value="c" />
           </el-select>
         </el-form-item>
 
-        <el-form-item label="班主任姓名" prop="class_teacher_name">
-          <el-input v-model="form.class_teacher_name" placeholder="请输入班主任姓名" />
+        <el-form-item :label="i18n.t('labelClassTeacher')" prop="class_teacher_name">
+          <el-input v-model="form.class_teacher_name" :placeholder="i18n.t('placeholderClassTeacher')" />
         </el-form-item>
 
-        <el-form-item label="班主任电话" prop="class_teacher_phone">
-          <el-input v-model="form.class_teacher_phone" placeholder="请输入班主任电话" />
+        <el-form-item :label="i18n.t('labelClassTeacherPhone')" prop="class_teacher_phone">
+          <el-input v-model="form.class_teacher_phone" :placeholder="i18n.t('placeholderClassTeacherPhone')" />
         </el-form-item>
 
-        <!-- 外出权限 -->
-        <el-divider content-position="left">外出权限</el-divider>
+        <!-- Outing permission -->
+        <el-divider content-position="left">{{ i18n.t('sectionOuting') }}</el-divider>
 
-        <el-form-item label="外出权限" prop="outing_permission">
+        <el-form-item :label="i18n.t('labelOutingPerm')" prop="outing_permission">
           <el-radio-group v-model="form.outing_permission">
-            <el-radio value="许可">许可</el-radio>
-            <el-radio value="不许可">不许可</el-radio>
-            <el-radio value="受限">受限</el-radio>
+            <el-radio value="许可">{{ i18n.t('outingAllowed') }}</el-radio>
+            <el-radio value="不许可">{{ i18n.t('outingDenied') }}</el-radio>
+            <el-radio value="受限">{{ i18n.t('outingRestricted') }}</el-radio>
           </el-radio-group>
         </el-form-item>
 
         <template v-if="form.outing_permission === '受限'">
-          <el-form-item label="允许外出日期" prop="outing_dates">
+          <el-form-item :label="i18n.t('labelOutingDates')" prop="outing_dates">
             <el-date-picker
               v-model="outingDatesArray"
               type="dates"
-              placeholder="选择允许外出的日期"
+              placeholder="-"
               value-format="YYYY-MM-DD"
               style="width: 100%"
               @change="onOutingDatesChange"
             />
           </el-form-item>
 
-          <el-form-item label="允许外出时段" prop="outing_time_ranges">
+          <el-form-item :label="i18n.t('labelOutingTimes')" prop="outing_time_ranges">
             <div style="width: 100%">
               <div
                 v-for="(range, idx) in outingTimeRanges"
@@ -299,24 +299,24 @@
               >
                 <el-time-picker
                   v-model="range.start"
-                  placeholder="开始时间"
+                  placeholder="--:--"
                   value-format="HH:mm"
                   format="HH:mm"
                   style="width: 140px"
                   @change="syncTimeRangesToForm"
                 />
-                <span>至</span>
+                <span>{{ i18n.t('timeTo') }}</span>
                 <el-time-picker
                   v-model="range.end"
-                  placeholder="结束时间"
+                  placeholder="--:--"
                   value-format="HH:mm"
                   format="HH:mm"
                   style="width: 140px"
                   @change="syncTimeRangesToForm"
                 />
-                <el-button type="danger" size="small" plain @click="removeTimeRange(idx)">删除</el-button>
+                <el-button type="danger" size="small" plain @click="removeTimeRange(idx)">{{ i18n.t('btnRemoveTimeRange') }}</el-button>
               </div>
-              <el-button size="small" @click="addTimeRange">+ 添加时间段</el-button>
+              <el-button size="small" @click="addTimeRange">{{ i18n.t('btnAddTimeRange') }}</el-button>
             </div>
           </el-form-item>
         </template>
@@ -325,27 +325,27 @@
     </div>
 
     <template #footer>
-      <el-button @click="dialogVisible = false">取消</el-button>
-      <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
+      <el-button @click="dialogVisible = false">{{ i18n.t('btnCancel') }}</el-button>
+      <el-button type="primary" :loading="saving" @click="handleSave">{{ i18n.t('btnSave') }}</el-button>
     </template>
   </el-dialog>
 
-  <!-- 授权密码对话框（编辑/删除前验证） -->
-  <el-dialog v-model="authDialogVisible" title="需要授权密码" width="360px" :close-on-click-modal="false">
+  <!-- Authorization password dialog (before edit/delete) -->
+  <el-dialog v-model="authDialogVisible" :title="i18n.t('authDialogTitle')" width="360px" :close-on-click-modal="false">
     <el-form @submit.prevent>
-      <el-form-item label="授权密码" label-width="80px">
+      <el-form-item :label="i18n.t('labelAuthPassword')" label-width="120px">
         <el-input
           v-model="authPassword"
           type="password"
           show-password
-          placeholder="请输入授权密码"
+          :placeholder="i18n.t('placeholderAuthPassword')"
           @keyup.enter="confirmAuthAction"
         />
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="authDialogVisible = false">取 消</el-button>
-      <el-button type="primary" :loading="authLoading" @click="confirmAuthAction">确 定</el-button>
+      <el-button @click="authDialogVisible = false">{{ i18n.t('btnCancel') }}</el-button>
+      <el-button type="primary" :loading="authLoading" @click="confirmAuthAction">{{ i18n.t('btnConfirm') }}</el-button>
     </template>
   </el-dialog>
 </template>
@@ -367,7 +367,8 @@ import {
   validateNationalityDocType,
   validateBirthDate,
   validateIssueDate,
-  validateExpiryDate
+  validateExpiryDate,
+  validateIDConsistency
 } from '@/utils/constants'
 import { useI18n } from '@/utils/i18n'
 
@@ -392,10 +393,19 @@ const idDocNumberError = ref('')
 const aux1DocNumberError = ref('')
 const aux2DocNumberError = ref('')
 
-// Date validation error refs (i18n key or empty string)
-const birthDateError = ref('')
+// Date range validation error refs (translated strings)
+const birthDateRangeError = ref('')
 const issueDateError = ref('')
 const expiryDateError = ref('')
+
+// ID consistency error refs (translated strings)
+// These show on the birth_date / gender fields when the entered value
+// contradicts what is encoded in the ID number.
+const birthDateIdError = ref('')
+const genderIdError = ref('')
+
+// Combined birth date error: range first, then ID-consistency
+const birthDateError = computed(() => birthDateRangeError.value || birthDateIdError.value)
 
 const outingDatesArray = ref([])
 const outingTimeRanges = ref([])
@@ -460,19 +470,16 @@ const aux1TypeOptions = computed(() => {
 // Aux1 type is fixed (only one option)
 const aux1TypeFixed = computed(() => ['11', '21', '04'].includes(form.id_doc_type))
 
-const aux1Label = computed(() => {
-  if (form.id_doc_type === '04') return '辅助证件类型'
-  return '辅助证件1类型'
-})
+const aux1Label = computed(() => i18n.t('labelAux1Type'))
 
 const aux1NumPlaceholder = computed(() => {
   const req = ['11', '21', '04'].includes(form.id_doc_type)
-  return req ? '请输入辅助证件号码（必填）' : '请输入辅助证件号码（可选）'
+  return req ? i18n.t('validAux1NumberRequired') : i18n.t('labelAux1Number')
 })
 
 const aux1TypePlaceholder = computed(() => {
   const req = ['11', '21', '04'].includes(form.id_doc_type)
-  return req ? '请选择辅助证件类型（必填）' : '请选择辅助证件类型（可选）'
+  return req ? i18n.t('validAux1TypeRequired') : i18n.t('labelAux1Type')
 })
 
 // Aux2 type options based on primary doc type
@@ -508,33 +515,61 @@ const formRules = computed(() => {
   const needAux2 = ['11', '21'].includes(mainType)
 
   return {
-    name_cn: requireChinese ? [{ required: true, message: '中文姓名为必填项（CHN/HKG/MAC/TWN国籍）', trigger: 'blur' }] : [],
-    name_en: [{ required: true, message: '英文姓名为必填项', trigger: 'blur' }],
-    role: [{ required: true, message: '请选择角色', trigger: 'change' }],
-    gender: [{ required: true, message: '请选择性别', trigger: 'change' }],
-    nationality: [{ required: true, message: '国籍为必填项', trigger: 'change' }],
-    birth_date: [{ required: true, message: '出生日期为必填项', trigger: 'change' }],
-    id_doc_type: [{ required: true, message: '主证件类型为必填项', trigger: 'change' }],
-    id_doc_number: [{ required: true, message: '主证件号码为必填项', trigger: 'blur' }],
-    id_issue_date: [{ required: true, message: '签发日期为必填项', trigger: 'change' }],
-    id_expiry_date: [{ required: true, message: '有效期为必填项', trigger: 'change' }],
-    id_issue_authority: [{ required: true, message: '签发机关为必填项', trigger: 'blur' }],
-    aux1_doc_type: needAux1 ? [{ required: true, message: '辅助证件1类型为必填项', trigger: 'change' }] : [],
-    aux1_doc_number: needAux1 ? [{ required: true, message: '辅助证件1号码为必填项', trigger: 'blur' }] : [],
-    aux2_doc_type: needAux2 ? [{ required: true, message: '辅助证件2类型为必填项', trigger: 'change' }] : [],
-    aux2_doc_number: needAux2 ? [{ required: true, message: '辅助证件2号码为必填项', trigger: 'blur' }] : [],
-    proof_doc_type: mainType === '04' ? [{ required: true, message: '证明文件类型为必填项', trigger: 'change' }] : [],
-    proof_issue_country: mainType === '04' ? [{ required: true, message: '签发国家为必填项', trigger: 'change' }] : [],
+    name_cn: requireChinese ? [{ required: true, message: i18n.t('validNameCnRequired'), trigger: 'blur' }] : [],
+    name_en: [{ required: true, message: i18n.t('validNameEnRequired'), trigger: 'blur' }],
+    role: [{ required: true, message: i18n.t('validRoleRequired'), trigger: 'change' }],
+    gender: [{ required: true, message: i18n.t('validGenderRequired'), trigger: 'change' }],
+    nationality: [{ required: true, message: i18n.t('validNationalityRequired'), trigger: 'change' }],
+    birth_date: [{ required: true, message: i18n.t('validBirthDateRequired'), trigger: 'change' }],
+    id_doc_type: [{ required: true, message: i18n.t('validDocTypeRequired'), trigger: 'change' }],
+    id_doc_number: [{ required: true, message: i18n.t('validDocNumberRequired'), trigger: 'blur' }],
+    id_issue_date: [{ required: true, message: i18n.t('validIssueDateRequired'), trigger: 'change' }],
+    id_expiry_date: [{ required: true, message: i18n.t('validExpiryDateRequired'), trigger: 'change' }],
+    id_issue_authority: [{ required: true, message: i18n.t('validIssueAuthRequired'), trigger: 'blur' }],
+    aux1_doc_type: needAux1 ? [{ required: true, message: i18n.t('validAux1TypeRequired'), trigger: 'change' }] : [],
+    aux1_doc_number: needAux1 ? [{ required: true, message: i18n.t('validAux1NumberRequired'), trigger: 'blur' }] : [],
+    aux2_doc_type: needAux2 ? [{ required: true, message: i18n.t('validAux2TypeRequired'), trigger: 'change' }] : [],
+    aux2_doc_number: needAux2 ? [{ required: true, message: i18n.t('validAux2NumberRequired'), trigger: 'blur' }] : [],
+    proof_doc_type: mainType === '04' ? [{ required: true, message: i18n.t('validProofDocTypeRequired'), trigger: 'change' }] : [],
+    proof_issue_country: mainType === '04' ? [{ required: true, message: i18n.t('validProofIssueCountryRequired'), trigger: 'change' }] : [],
     school_name: [{ validator: validateSchoolNameRule, trigger: 'blur' }]
   }
 })
 
 // ─── Watchers ─────────────────────────────────────────────────────────────────
 
+// ID number format-only validation (does NOT check birthdate/gender consistency).
+// Consistency is validated separately below so mismatches are reported on the
+// correct field rather than being shown as a generic "document number" error.
 watch(
-  () => [form.id_doc_number, form.id_doc_type, form.nationality, form.gender, form.birth_date],
-  ([number, docType, nationality, gender, birthDate]) => {
-    idDocNumberError.value = validateIDNumber(docType, number, nationality, { gender, birthDate }) || ''
+  () => [form.id_doc_number, form.id_doc_type, form.nationality],
+  ([number, docType, nationality]) => {
+    idDocNumberError.value = validateIDNumber(docType, number, nationality) || ''
+  }
+)
+
+// ID-number ↔ birthdate / gender consistency watcher.
+// When the value encoded in the ID differs from the separately entered field,
+// show the error on THAT field rather than on the document number field.
+watch(
+  () => [form.id_doc_number, form.id_doc_type, form.birth_date, form.gender],
+  ([number, docType, birthDate, gender]) => {
+    const result = validateIDConsistency(docType, number, gender, birthDate)
+    if (result?.field === 'birth_date') {
+      // Only apply if the date itself has passed basic range validation
+      if (!validateBirthDate(birthDate)) {
+        birthDateIdError.value = i18n.t(result.key)
+      } else {
+        birthDateIdError.value = ''
+      }
+      genderIdError.value = ''
+    } else if (result?.field === 'gender') {
+      genderIdError.value = i18n.t(result.key)
+      birthDateIdError.value = ''
+    } else {
+      birthDateIdError.value = ''
+      genderIdError.value = ''
+    }
   }
 )
 
@@ -557,7 +592,8 @@ watch(
   () => form.birth_date,
   (val) => {
     const key = validateBirthDate(val)
-    birthDateError.value = key ? i18n.t(key) : ''
+    birthDateRangeError.value = key ? i18n.t(key) : ''
+    // Clear consistency error when birth date changes (consistency watcher re-evaluates separately)
   }
 )
 
@@ -627,7 +663,7 @@ function validateSchoolNameRule(rule, value, callback) {
   if (keywords.some(kw => value.includes(kw))) {
     callback()
   } else {
-    callback(new Error('就读学校名称须包含"小学"、"中学"、"大学"或"学院"之一'))
+    callback(new Error(i18n.t('schoolKeywordError')))
   }
 }
 
@@ -645,6 +681,13 @@ function permissionTagType(p) {
   if (p === '不许可') return 'danger'
   if (p === '受限') return 'warning'
   return 'info'
+}
+
+function outingPermLabel(p) {
+  if (p === '许可') return i18n.t('outingAllowed')
+  if (p === '不许可') return i18n.t('outingDenied')
+  if (p === '受限') return i18n.t('outingRestricted')
+  return p
 }
 
 // ─── Nationality / doc type linkage ──────────────────────────────────────────
@@ -674,7 +717,7 @@ function onIdDocTypeChange(docType) {
     const stillValid = available.some(c => c.code === form.nationality)
     if (!stillValid) {
       form.nationality = ''
-      ElMessage.warning('当前国籍与所选证件类型不兼容，已清空国籍')
+      ElMessage.warning(i18n.t('nationalityIncompatible'))
     }
   }
 }
@@ -703,11 +746,11 @@ async function onProofIssueCountryChange(val) {
   if (warningCountries.has(val)) {
     try {
       await ElMessageBox.confirm(
-        '此人近2年内是否实际居住在该国家超过18个月？如否，建议加强核实。',
-        '⚠️ 高风险国家确认',
+        i18n.t('highRiskCountryMsg'),
+        i18n.t('highRiskCountryTitle'),
         {
-          confirmButtonText: '确认继续',
-          cancelButtonText: '取消',
+          confirmButtonText: i18n.t('highRiskConfirm'),
+          cancelButtonText: i18n.t('btnCancel'),
           type: 'warning'
         }
       )
@@ -748,7 +791,7 @@ async function fetchMembers() {
     const res = await getMembers()
     members.value = res.data || []
   } catch {
-    ElMessage.error('获取成员列表失败')
+    ElMessage.error(i18n.t('fetchMembersFailed'))
   } finally {
     loading.value = false
   }
@@ -764,7 +807,7 @@ function openEditWithAuth(row) {
 async function confirmAuthAction() {
   if (!authAction.value) return
   if (!authPassword.value) {
-    ElMessage.warning('请输入授权密码')
+    ElMessage.warning(i18n.t('authPasswordRequired'))
     return
   }
   authLoading.value = true
@@ -780,12 +823,12 @@ async function confirmAuthAction() {
       // If row is null this was called from the create-parent flow; the save will retry
     } else if (type === 'delete') {
       await deleteMemberWithAuth(row.id, authPassword.value)
-      ElMessage.success('已删除')
+      ElMessage.success(i18n.t('memberDeleted'))
       authDialogVisible.value = false
       await fetchMembers()
     }
   } catch (e) {
-    const msg = e.response?.data?.message || '操作失败'
+    const msg = e.response?.data?.message || i18n.t('saveFailed')
     ElMessage.error(msg)
   } finally {
     authLoading.value = false
@@ -844,7 +887,9 @@ function resetForm() {
   idDocNumberError.value = ''
   aux1DocNumberError.value = ''
   aux2DocNumberError.value = ''
-  birthDateError.value = ''
+  birthDateRangeError.value = ''
+  birthDateIdError.value = ''
+  genderIdError.value = ''
   issueDateError.value = ''
   expiryDateError.value = ''
   nameEnManuallyEdited.value = false
@@ -856,27 +901,30 @@ async function handleSave() {
   try {
     await formRef.value.validate()
   } catch {
-    ElMessage.error('请检查表单填写是否正确')
+    ElMessage.error(i18n.t('formError'))
     return
   }
 
-  // Block save if there are ID number validation errors
+  // Block save if there are field-level validation errors.
+  // Check each field individually so the toast identifies the exact issue.
+  if (birthDateError.value) {
+    ElMessage.error(birthDateError.value)
+    return
+  }
+  if (genderIdError.value) {
+    ElMessage.error(genderIdError.value)
+    return
+  }
   if (idDocNumberError.value) {
-    ElMessage.error('主证件号码格式有误，请修正后保存')
+    ElMessage.error(i18n.t('idNumberError'))
     return
   }
   if (aux1DocNumberError.value) {
-    ElMessage.error('辅助证件1号码格式有误，请修正后保存')
+    ElMessage.error(i18n.t('aux1NumberError'))
     return
   }
   if (aux2DocNumberError.value) {
-    ElMessage.error('辅助证件2号码格式有误，请修正后保存')
-    return
-  }
-
-  // Block save if date validations fail
-  if (birthDateError.value) {
-    ElMessage.error(birthDateError.value)
+    ElMessage.error(i18n.t('aux2NumberError'))
     return
   }
   if (issueDateError.value) {
@@ -895,18 +943,18 @@ async function handleSave() {
       // Include auth password for server-side validation
       payload.auth_password = pendingAuthPassword.value
       await updateMember(editingId.value, payload)
-      ElMessage.success('成员已更新')
+      ElMessage.success(i18n.t('memberUpdated'))
     } else {
       // For new parent records, include auth_password if provided (same-person child exists)
       payload.auth_password = pendingAuthPassword.value
       await createMember(payload)
-      ElMessage.success('成员已添加')
+      ElMessage.success(i18n.t('memberAdded'))
     }
     dialogVisible.value = false
     pendingAuthPassword.value = ''
     await fetchMembers()
   } catch (e) {
-    const msg = e.response?.data?.message || '保存失败，请稍后重试'
+    const msg = e.response?.data?.message || i18n.t('saveFailed')
     ElMessage.error(msg)
     // If server requires auth password for new parent (same-person child exists),
     // show the auth dialog so the user can supply it and retry
@@ -923,9 +971,9 @@ async function handleSave() {
 async function handleDelete(row) {
   try {
     await ElMessageBox.confirm(
-      `确定要删除成员「${getMemberDisplayName(row)}」吗？`,
-      '删除确认',
-      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+      i18n.t('confirmDeleteMember').replace('{name}', getMemberDisplayName(row)),
+      i18n.t('confirmDeleteTitle'),
+      { type: 'warning', confirmButtonText: i18n.t('confirmDeleteBtn'), cancelButtonText: i18n.t('btnCancel') }
     )
     // All deletions require auth password
     authAction.value = { type: 'delete', row }

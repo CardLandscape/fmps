@@ -4,9 +4,9 @@
     <el-card shadow="never" style="margin-bottom:16px">
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-weight:600">案件详情</span>
+          <span style="font-weight:600">{{ i18n.t('caseDetailTitle') }}</span>
           <div>
-            <el-button @click="$router.back()" size="small">返回</el-button>
+            <el-button @click="$router.back()" size="small">{{ i18n.t('btnBack') }}</el-button>
             <!-- Start execution: only when status=pending and all prep items checked -->
             <el-button
               v-if="caseData.status === 'pending'"
@@ -15,7 +15,7 @@
               :loading="actionLoading"
               :disabled="!allPrepChecked"
               @click="handleStart"
-            >{{ allPrepChecked ? '开始执行' : '请先确认准备物品' }}</el-button>
+            >{{ allPrepChecked ? i18n.t('btnStartExec') : i18n.t('confirmPrepFirst') }}</el-button>
             <!-- Force complete (legacy / skip) -->
             <el-button
               v-if="caseData.status === 'active'"
@@ -23,24 +23,24 @@
               size="small"
               :loading="actionLoading"
               @click="handleComplete"
-            >结束惩罚</el-button>
+            >{{ i18n.t('btnEndPunishment') }}</el-button>
           </div>
         </div>
       </template>
       <el-descriptions :column="2" border>
-        <el-descriptions-item label="标题">{{ caseData.title }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
+        <el-descriptions-item :label="i18n.t('labelCaseTitle')">{{ caseData.title }}</el-descriptions-item>
+        <el-descriptions-item :label="i18n.t('labelCaseStatusHeader')">
           <el-tag :type="statusTagType(caseData.status)">{{ statusLabel(caseData.status) }}</el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="家长">{{ getMemberName(caseData.parent_member) }}</el-descriptions-item>
-        <el-descriptions-item label="小孩">{{ getMemberName(caseData.child_member) }}</el-descriptions-item>
-        <el-descriptions-item label="惩罚级别">
+        <el-descriptions-item :label="i18n.t('labelCaseParentHeader')">{{ getMemberName(caseData.parent_member) }}</el-descriptions-item>
+        <el-descriptions-item :label="i18n.t('labelCaseChildHeader')">{{ getMemberName(caseData.child_member) }}</el-descriptions-item>
+        <el-descriptions-item :label="i18n.t('labelPunishLevelHeader')">
           <el-tag v-if="caseData.punishment_level" type="danger">{{ caseData.punishment_level }}级</el-tag>
           <span v-else>-</span>
         </el-descriptions-item>
-        <el-descriptions-item label="开始时间">{{ caseData.start_time ? formatDate(caseData.start_time) : '未开始' }}</el-descriptions-item>
-        <el-descriptions-item label="描述" :span="2">{{ caseData.description || '-' }}</el-descriptions-item>
-        <el-descriptions-item v-if="caseData.status === 'completed'" label="最终成绩" :span="2">
+        <el-descriptions-item :label="i18n.t('labelStartTime')">{{ caseData.start_time ? formatDate(caseData.start_time) : i18n.t('notStarted') }}</el-descriptions-item>
+        <el-descriptions-item :label="i18n.t('labelDescription')" :span="2">{{ caseData.description || '-' }}</el-descriptions-item>
+        <el-descriptions-item v-if="caseData.status === 'completed'" :label="i18n.t('labelFinalGrade')" :span="2">
           <el-tag :type="gradeTagType(caseData.final_grade)" size="large" style="font-size:16px">{{ caseData.final_grade || '-' }}</el-tag>
         </el-descriptions-item>
       </el-descriptions>
@@ -50,8 +50,8 @@
     <el-card v-if="caseData.status === 'pending' && prepItems.length > 0" shadow="never" style="margin-bottom:16px">
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-weight:600">准备阶段</span>
-          <span style="font-size:13px;color:#606266">已确认 {{ checkedCount }} / {{ prepItems.length }} 项</span>
+          <span style="font-weight:600">{{ i18n.t('prepPhaseTitle') }}</span>
+          <span style="font-size:13px;color:#606266">{{ i18n.t('prepProgress').replace('{done}', checkedCount).replace('{total}', prepItems.length) }}</span>
         </div>
       </template>
       <div style="padding:4px 0">
@@ -75,10 +75,10 @@
     <el-card v-if="caseData.status === 'active' && parsedSteps.length > 0" shadow="never" style="margin-bottom:16px">
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-weight:600">执行阶段</span>
+          <span style="font-weight:600">{{ i18n.t('execPhaseTitle') }}</span>
           <span style="color:#f56c6c;font-weight:600;font-size:16px">
-            已扣：{{ totalDeducted }} 分
-            <el-tag :type="gradeTagType(currentGrade)" size="small" style="margin-left:8px">当前成绩：{{ currentGrade }}</el-tag>
+            {{ i18n.t('totalDeducted').replace('{n}', totalDeducted) }}
+            <el-tag :type="gradeTagType(currentGrade)" size="small" style="margin-left:8px">{{ i18n.t('currentGrade') }}{{ currentGrade }}</el-tag>
           </span>
         </div>
       </template>
@@ -97,7 +97,7 @@
       <el-card shadow="hover" style="border:2px solid #409eff;background:#ecf5ff;margin-bottom:12px">
         <div style="display:flex;align-items:flex-start;gap:12px">
           <el-tag type="primary" size="large" style="flex-shrink:0;font-size:16px;padding:0 12px">
-            步骤 {{ (caseData.current_step_index ?? 0) + 1 }}
+            {{ i18n.t('stepLabel').replace('{n}', (caseData.current_step_index ?? 0) + 1) }}
           </el-tag>
           <div style="flex:1">
             <div style="font-size:15px;font-weight:500;margin-bottom:12px;line-height:1.6">
@@ -107,7 +107,7 @@
               <!-- Deduct button: quick amounts -->
               <el-button type="danger" size="small" @click="openDeductDialog()">
                 <el-icon><Minus /></el-icon>
-                扣分
+                {{ i18n.t('btnDeduct') }}
               </el-button>
               <el-button
                 type="success"
@@ -125,7 +125,7 @@
 
       <!-- Completed steps summary -->
       <div v-if="caseData.current_step_index > 0" style="margin-top:8px">
-        <div style="font-size:12px;color:#909399;margin-bottom:6px">已完成步骤：</div>
+        <div style="font-size:12px;color:#909399;margin-bottom:6px">{{ i18n.t('completedSteps') }}</div>
         <div v-for="i in caseData.current_step_index" :key="i" style="font-size:12px;color:#909399;padding:2px 0">
           <el-icon style="color:#67c23a"><CircleCheck /></el-icon>
           {{ parsedSteps[i - 1] }}
@@ -137,9 +137,9 @@
     <el-card v-if="caseData.status === 'active' && parsedSteps.length === 0 && steps.length > 0" shadow="never" style="margin-bottom:16px">
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-weight:600">惩罚过程</span>
+          <span style="font-weight:600">{{ i18n.t('legacyPhaseTitle') }}</span>
           <span style="color:#f56c6c;font-weight:600">
-            已扣：{{ totalDeducted }} 分
+            {{ i18n.t('totalDeducted').replace('{n}', totalDeducted) }}
             <el-tag :type="gradeTagType(currentGrade)" size="small" style="margin-left:8px">{{ currentGrade }}</el-tag>
           </span>
         </div>
@@ -173,7 +173,7 @@
                 type="danger"
                 size="small"
                 @click="handleDeductLegacy(step)"
-              >扣分</el-button>
+              >{{ i18n.t('btnDeduct') }}</el-button>
             </div>
           </el-card>
         </el-timeline-item>
@@ -188,14 +188,14 @@
         <span style="font-weight:600">惩罚归档</span>
       </template>
       <el-descriptions :column="2" border>
-        <el-descriptions-item label="惩罚级别">{{ caseData.punishment_level ? caseData.punishment_level + '级' : '-' }}</el-descriptions-item>
-        <el-descriptions-item label="总扣分">{{ totalDeducted }} 分</el-descriptions-item>
-        <el-descriptions-item label="最终成绩" :span="2">
+        <el-descriptions-item :label="i18n.t('labelPunishLevelArchive')">{{ caseData.punishment_level ? caseData.punishment_level : '-' }}</el-descriptions-item>
+        <el-descriptions-item :label="i18n.t('labelTotalDeducted')">{{ totalDeducted }}</el-descriptions-item>
+        <el-descriptions-item :label="i18n.t('labelFinalGradeArchive')" :span="2">
           <el-tag :type="gradeTagType(caseData.final_grade)" size="large" style="font-size:16px;font-weight:bold">
             {{ caseData.final_grade || '-' }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="成绩说明" :span="2">{{ gradeDescription(caseData.final_grade) }}</el-descriptions-item>
+        <el-descriptions-item :label="i18n.t('labelGradeDesc')" :span="2">{{ gradeDescription(caseData.final_grade) }}</el-descriptions-item>
       </el-descriptions>
     </el-card>
 
@@ -203,26 +203,26 @@
     <el-card v-if="caseData.status === 'active' || caseData.status === 'completed'" shadow="never">
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-weight:600">扣分记录</span>
-          <span style="color:#f56c6c;font-weight:600">合计扣分：{{ totalDeducted }} 分</span>
+          <span style="font-weight:600">{{ i18n.t('penaltiesTitle') }}</span>
+          <span style="color:#f56c6c;font-weight:600">{{ i18n.t('totalDeductedSummary').replace('{n}', totalDeducted) }}</span>
         </div>
       </template>
       <el-table :data="penalties" stripe style="width:100%">
         <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="rule_text" label="扣分规则" />
-        <el-table-column prop="score_delta" label="分值" width="80">
+        <el-table-column prop="rule_text" :label="i18n.t('colPenaltyRule')" />
+        <el-table-column prop="score_delta" :label="i18n.t('colPenaltyScore')" width="80">
           <template #default="{ row }">
             <span :style="{ color: row.revoked ? '#909399' : '#f56c6c' }">
               {{ row.score_delta }}
-              <span v-if="row.revoked" style="font-size:12px">（已撤回）</span>
+              <span v-if="row.revoked" style="font-size:12px">{{ i18n.t('penaltyRevoked') }}</span>
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="reason" label="备注" />
-        <el-table-column prop="created_at" label="时间" width="160">
+        <el-table-column prop="reason" :label="i18n.t('colPenaltyReason')" />
+        <el-table-column prop="created_at" :label="i18n.t('colPenaltyTime')" width="160">
           <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column :label="i18n.t('colActions')" width="100" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="!row.revoked && caseData.status === 'active'"
@@ -230,20 +230,20 @@
               type="warning"
               plain
               @click="openRevoke(row)"
-            >撤回</el-button>
+            >{{ i18n.t('btnRevoke') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="penalties.length === 0" description="暂无扣分记录" />
+      <el-empty v-if="penalties.length === 0" :description="i18n.t('noPenalties')" />
     </el-card>
 
     <!-- Deduct dialog -->
-    <el-dialog v-model="deductVisible" title="扣分" width="440px">
+    <el-dialog v-model="deductVisible" :title="i18n.t('deductDialogTitle')" width="440px">
       <el-form :model="deductForm" label-width="90px">
-        <el-form-item label="扣分原因">
-          <el-input v-model="deductForm.ruleText" placeholder="请输入扣分原因" />
+        <el-form-item :label="i18n.t('labelDeductReason')">
+          <el-input v-model="deductForm.ruleText" :placeholder="i18n.t('placeholderDeductReason')" />
         </el-form-item>
-        <el-form-item label="扣分分值">
+        <el-form-item :label="i18n.t('labelDeductPoints')">
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
             <el-button
               v-for="v in quickDeductValues"
@@ -265,24 +265,24 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="deductVisible = false">取 消</el-button>
-        <el-button type="danger" :loading="deductLoading" @click="handleDeduct">确认扣分</el-button>
+        <el-button @click="deductVisible = false">{{ i18n.t('btnCancel') }}</el-button>
+        <el-button type="danger" :loading="deductLoading" @click="handleDeduct">{{ i18n.t('btnConfirmDeduct') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- Revoke dialog -->
-    <el-dialog v-model="revokeVisible" title="撤回扣分" width="400px">
+    <el-dialog v-model="revokeVisible" :title="i18n.t('revokeDialogTitle')" width="400px">
       <el-form :model="revokeForm" label-width="90px">
-        <el-form-item label="授权密码">
-          <el-input v-model="revokeForm.password" type="password" show-password placeholder="请输入授权密码" />
+        <el-form-item :label="i18n.t('labelRevokePassword')">
+          <el-input v-model="revokeForm.password" type="password" show-password :placeholder="i18n.t('placeholderRevokePassword')" />
         </el-form-item>
-        <el-form-item label="撤回原因">
-          <el-input v-model="revokeForm.reason" placeholder="撤回原因（可选）" />
+        <el-form-item :label="i18n.t('labelRevokeReason')">
+          <el-input v-model="revokeForm.reason" :placeholder="i18n.t('placeholderRevokeReason')" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="revokeVisible = false">取 消</el-button>
-        <el-button type="primary" :loading="revokeLoading" @click="handleRevoke">确 定</el-button>
+        <el-button @click="revokeVisible = false">{{ i18n.t('btnCancel') }}</el-button>
+        <el-button type="primary" :loading="revokeLoading" @click="handleRevoke">{{ i18n.t('btnConfirm') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -294,8 +294,10 @@ import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Minus, Check, CircleCheck } from '@element-plus/icons-vue'
 import { getCase, startPunishment, completePunishment, completeStep, addPenalty, revokePenalty } from '@/utils/api'
+import { useI18n } from '@/utils/i18n'
 
 const route = useRoute()
+const i18n = useI18n()
 const caseId = route.params.id
 
 const loading = ref(false)
@@ -373,7 +375,7 @@ function stepTimelineType(idx) {
 // ---- End legacy ----
 
 function statusLabel(s) {
-  return { pending: '待执行', active: '执行中', completed: '已完成' }[s] ?? s
+  return { pending: i18n.t('statusPending'), active: i18n.t('statusActive'), completed: i18n.t('statusCompleted') }[s] ?? s
 }
 function getMemberName(m) {
   if (!m) return '-'
@@ -387,15 +389,15 @@ function gradeTagType(g) {
   return map[g] ?? 'info'
 }
 function gradeDescription(g) {
-  const map = {
-    '满分': '本次惩罚未发生任何扣分，表现完美。',
-    '优': '本次惩罚扣分1-5分，成绩为优。需在第二日重复执行下一级别惩罚。',
-    '良': '本次惩罚扣分6-15分，成绩为良。需在第二日重复执行同等级惩罚。',
-    '达标': '本次惩罚扣分16-19分，成绩为达标。需再执行三次该惩罚。',
-    '不达标': '本次惩罚扣分20分以上，成绩为不达标。需继续执行一周。',
-    '态度不端正': '本次惩罚扣分40分以上，成绩为态度不端正。需执行至态度端正为止。'
+  const keyMap = {
+    '满分': 'gradeDescPerfect',
+    '优': 'gradeDescExcellent',
+    '良': 'gradeDescGood',
+    '达标': 'gradeDescPass',
+    '不达标': 'gradeDescFail',
+    '态度不端正': 'gradeDescBadAttitude'
   }
-  return map[g] ?? '-'
+  return keyMap[g] ? i18n.t(keyMap[g]) : '-'
 }
 function formatDate(d) {
   if (!d) return '-'
@@ -418,7 +420,7 @@ async function loadData() {
       prepChecked.value = prepItems.value.map(() => false)
     }
   } catch {
-    ElMessage.error('加载案件失败')
+    ElMessage.error(i18n.t('loadCaseFailed'))
   } finally {
     loading.value = false
   }
@@ -428,7 +430,7 @@ async function handleStart() {
   actionLoading.value = true
   try {
     await startPunishment(caseId)
-    ElMessage.success('惩罚已开始')
+    ElMessage.success(i18n.t('punishStarted'))
     await loadData()
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '操作失败')
@@ -460,7 +462,7 @@ async function handleComplete() {
   try {
     const res = await completePunishment(caseId)
     const grade = res.data.final_grade
-    ElMessage.success(`惩罚已结束，最终成绩：${grade}`)
+    ElMessage.success(i18n.t('punishEnded').replace('{grade}', grade))
     await loadData()
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '操作失败')
@@ -477,7 +479,7 @@ function openDeductDialog() {
 
 async function handleDeduct() {
   if (!deductForm.points || deductForm.points < 1) {
-    ElMessage.warning('请输入扣分分值')
+    ElMessage.warning(i18n.t('deductPointsRequired'))
     return
   }
   deductLoading.value = true
@@ -487,7 +489,7 @@ async function handleDeduct() {
       score_delta: -(deductForm.points),
       reason: ''
     })
-    ElMessage.success(`已扣除 ${deductForm.points} 分`)
+    ElMessage.success(i18n.t('deductSuccess').replace('{n}', deductForm.points))
     deductVisible.value = false
     await loadData()
   } catch (e) {
@@ -520,7 +522,7 @@ function openRevoke(row) {
 
 async function handleRevoke() {
   if (!revokeForm.password) {
-    ElMessage.warning('请输入授权密码')
+    ElMessage.warning(i18n.t('revokePasswordRequired'))
     return
   }
   revokeLoading.value = true
@@ -529,7 +531,7 @@ async function handleRevoke() {
       password: revokeForm.password,
       reason: revokeForm.reason
     })
-    ElMessage.success('撤回成功')
+    ElMessage.success(i18n.t('revokeSuccess'))
     revokeVisible.value = false
     await loadData()
   } catch (e) {

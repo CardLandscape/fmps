@@ -860,3 +860,46 @@ function _sixteenthBirthday(birth) {
   }
   return { y: birth.y + 16, m: birth.m, d: birth.d }
 }
+
+/**
+ * Validate whether the gender and birth date embedded in a Chinese-format ID
+ * (types 01/91/11/21/31) are consistent with the separately entered form fields.
+ *
+ * This is intentionally separate from validateIDNumber so that field-level
+ * errors can be shown on the correct form field rather than on the ID number field.
+ *
+ * @param {string} docType   - e.g. '01', '91', '11', '21', '31'
+ * @param {string} number    - the raw ID string
+ * @param {string} gender    - '男' | '女' (can be empty)
+ * @param {string} birthDate - YYYY-MM-DD (can be empty)
+ * @returns {{ field: 'birth_date'|'gender', key: string }|null}
+ */
+export function validateIDConsistency(docType, number, gender, birthDate) {
+  if (!number || !['01', '91', '11', '21', '31'].includes(docType)) return null
+  if (number.length !== 18) return null
+
+  // Birth date embedded in digits 7-14 (index 6-13) as YYYYMMDD
+  if (birthDate) {
+    const parts = String(birthDate).split('-')
+    if (parts.length === 3) {
+      const expected = parts[0] + parts[1].padStart(2, '0') + parts[2].padStart(2, '0')
+      if (number.substring(6, 14) !== expected) {
+        return { field: 'birth_date', key: 'birthMismatchId' }
+      }
+    }
+  }
+
+  // 17th digit (index 16): odd = male (男), even = female (女)
+  if (gender) {
+    const ch = number[16]
+    if (ch >= '0' && ch <= '9') {
+      const d = parseInt(ch, 10)
+      const idGender = d % 2 !== 0 ? '男' : '女'
+      if (gender !== idGender) {
+        return { field: 'gender', key: 'genderMismatchId' }
+      }
+    }
+  }
+
+  return null
+}

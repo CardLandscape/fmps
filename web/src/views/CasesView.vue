@@ -2,52 +2,52 @@
   <el-card shadow="never">
     <template #header>
       <div style="display: flex; justify-content: space-between; align-items: center">
-        <span style="font-weight: 600">案件管理</span>
+        <span style="font-weight: 600">{{ i18n.t('casesPageTitle') }}</span>
         <el-button type="primary" @click="openDialog()">
           <el-icon><Plus /></el-icon>
-          新建案件
+          {{ i18n.t('btnNewCase') }}
         </el-button>
       </div>
     </template>
 
     <el-table :data="cases" v-loading="loading" stripe style="width: 100%">
       <el-table-column prop="id" label="ID" width="60" />
-      <el-table-column prop="title" label="标题" />
-      <el-table-column label="家长" width="120">
+      <el-table-column prop="title" :label="i18n.t('colTitle')" />
+      <el-table-column :label="i18n.t('colParent')" width="120">
         <template #default="{ row }">
           {{ getMemberName(row.parent_member) }}
         </template>
       </el-table-column>
-      <el-table-column label="小孩" width="120">
+      <el-table-column :label="i18n.t('colChild')" width="120">
         <template #default="{ row }">
           {{ getMemberName(row.child_member) }}
         </template>
       </el-table-column>
-      <el-table-column label="级别" width="70">
+      <el-table-column :label="i18n.t('colLevel')" width="70">
         <template #default="{ row }">
-          <el-tag v-if="row.punishment_level" size="small" type="danger">{{ row.punishment_level }}级</el-tag>
+          <el-tag v-if="row.punishment_level" size="small" type="danger">{{ row.punishment_level }}</el-tag>
           <span v-else>-</span>
         </template>
       </el-table-column>
-      <el-table-column prop="status" label="状态" width="100">
+      <el-table-column prop="status" :label="i18n.t('colStatus')" width="100">
         <template #default="{ row }">
           <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="成绩" width="100">
+      <el-table-column :label="i18n.t('colGrade')" width="100">
         <template #default="{ row }">
           <el-tag v-if="row.final_grade" :type="gradeTagType(row.final_grade)" size="small">{{ row.final_grade }}</el-tag>
           <span v-else>-</span>
         </template>
       </el-table-column>
-      <el-table-column prop="created_at" label="创建时间" width="160">
+      <el-table-column prop="created_at" :label="i18n.t('colCreatedAt')" width="160">
         <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column :label="i18n.t('colActions')" width="200" fixed="right">
         <template #default="{ row }">
-          <el-button size="small" type="primary" plain @click="goDetail(row)">详情</el-button>
-          <el-button size="small" type="warning" plain @click="openDialog(row)">编辑</el-button>
-          <el-button size="small" type="danger" plain @click="handleDelete(row)">删除</el-button>
+          <el-button size="small" type="primary" plain @click="goDetail(row)">{{ i18n.t('btnDetail') }}</el-button>
+          <el-button size="small" type="warning" plain @click="openDialog(row)">{{ i18n.t('btnEdit') }}</el-button>
+          <el-button size="small" type="danger" plain @click="handleDelete(row)">{{ i18n.t('btnDelete') }}</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -56,15 +56,15 @@
   <!-- 创建/编辑对话框 -->
   <el-dialog
     v-model="dialogVisible"
-    :title="editingId ? '编辑案件' : '新建案件'"
+    :title="editingId ? i18n.t('dialogEditCase') : i18n.t('dialogNewCase')"
     width="640px"
     @closed="resetForm"
   >
     <el-form ref="formRef" :model="form" :rules="formRules" label-width="100px">
-      <el-form-item label="标题" prop="title">
-        <el-input v-model="form.title" placeholder="案件标题" />
+      <el-form-item :label="i18n.t('labelCaseTitle')" prop="title">
+        <el-input v-model="form.title" :placeholder="i18n.t('placeholderCaseTitle')" />
       </el-form-item>
-      <el-form-item label="家长" prop="parent_member_id">
+      <el-form-item :label="i18n.t('labelCaseParent')" prop="parent_member_id">
         <el-select v-model="form.parent_member_id" placeholder="请选择家长成员" style="width:100%">
           <el-option
             v-for="m in parentMembers"
@@ -74,7 +74,7 @@
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="小孩" prop="child_member_id">
+      <el-form-item :label="i18n.t('labelCaseChild')" prop="child_member_id">
         <el-select v-model="form.child_member_id" placeholder="请选择小孩成员" style="width:100%">
           <el-option
             v-for="m in childMembers"
@@ -84,14 +84,14 @@
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="描述">
-        <el-input v-model="form.description" type="textarea" :rows="2" placeholder="案件描述（可选）" />
+      <el-form-item :label="i18n.t('labelCaseDescription')">
+        <el-input v-model="form.description" type="textarea" :rows="2" :placeholder="i18n.t('placeholderCaseDescription')" />
       </el-form-item>
 
       <!-- Punishment workflow section -->
-      <el-divider content-position="left">惩罚流程</el-divider>
+      <el-divider content-position="left">{{ i18n.t('sectionPunishment') }}</el-divider>
 
-      <el-form-item label="惩罚级别" prop="punishment_level">
+      <el-form-item :label="i18n.t('labelPunishLevel')" prop="punishment_level">
         <el-radio-group v-model="form.punishment_level">
           <el-radio-button value="A">A级</el-radio-button>
           <el-radio-button value="B">B级</el-radio-button>
@@ -100,15 +100,15 @@
         </el-radio-group>
       </el-form-item>
 
-      <el-form-item label="导入TXT">
+      <el-form-item :label="i18n.t('labelImportTxt')">
         <div style="width:100%">
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
             <el-button size="small" @click="triggerTxtImport" :disabled="!form.punishment_level">
               <el-icon><Upload /></el-icon>
-              选择TXT文件
+              {{ i18n.t('btnImportTxt') }}
             </el-button>
             <span v-if="form.txt_filename" style="font-size:12px;color:#606266">{{ form.txt_filename }}</span>
-            <span v-if="!form.punishment_level" style="font-size:12px;color:#f56c6c">请先选择惩罚级别</span>
+            <span v-if="!form.punishment_level" style="font-size:12px;color:#f56c6c">{{ i18n.t('selectLevelFirst') }}</span>
             <input
               ref="txtFileInput"
               type="file"
@@ -121,7 +121,7 @@
           <!-- Parsed preview -->
           <div v-if="parsedPreview.prepItems.length || parsedPreview.steps.length">
             <div v-if="parsedPreview.prepItems.length" style="margin-bottom:8px">
-              <div style="font-weight:600;font-size:13px;margin-bottom:4px">准备物品（{{ parsedPreview.prepItems.length }}项）：</div>
+              <div style="font-weight:600;font-size:13px;margin-bottom:4px">{{ i18n.t('prepItemsLabel') }}（{{ parsedPreview.prepItems.length }}）：</div>
               <el-tag
                 v-for="(item, i) in parsedPreview.prepItems"
                 :key="i"
@@ -130,33 +130,35 @@
               >{{ item }}</el-tag>
             </div>
             <div v-if="parsedPreview.steps.length">
-              <div style="font-weight:600;font-size:13px;margin-bottom:4px">执行步骤（{{ parsedPreview.steps.length }}步）：</div>
+              <div style="font-weight:600;font-size:13px;margin-bottom:4px">{{ i18n.t('execStepsLabel') }}（{{ parsedPreview.steps.length }}）：</div>
               <div v-for="(step, i) in parsedPreview.steps" :key="i" style="font-size:12px;color:#606266;margin-bottom:2px">
                 {{ i + 1 }}. {{ step }}
               </div>
             </div>
           </div>
           <div style="font-size:12px;color:#909399;margin-top:4px">
-            TXT文件会按选定级别自动解析出准备物品和执行步骤
+            {{ i18n.t('txtImportHint') }}
           </div>
         </div>
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="dialogVisible = false">取 消</el-button>
-      <el-button type="primary" :loading="saving" @click="handleSave">确 定</el-button>
+      <el-button @click="dialogVisible = false">{{ i18n.t('btnCancel') }}</el-button>
+      <el-button type="primary" :loading="saving" @click="handleSave">{{ i18n.t('btnConfirm') }}</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useI18n } from '@/utils/i18n'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Upload } from '@element-plus/icons-vue'
 import { getCases, createCase, updateCase, deleteCase, getMembers, parseCaseTxt } from '@/utils/api'
 
 const router = useRouter()
+const i18n = useI18n()
 const loading = ref(false)
 const saving = ref(false)
 const cases = ref([])
@@ -190,15 +192,15 @@ const childMembers = computed(() =>
 )
 
 const formRules = computed(() => ({
-  title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
-  parent_member_id: [{ required: true, message: '请选择家长成员', trigger: 'change' }],
+  title: [{ required: true, message: i18n.t('validCaseTitleRequired'), trigger: 'blur' }],
+  parent_member_id: [{ required: true, message: i18n.t('validCaseParentRequired'), trigger: 'change' }],
   child_member_id: [
-    { required: true, message: '请选择小孩成员', trigger: 'change' },
+    { required: true, message: i18n.t('validCaseChildRequired'), trigger: 'change' },
     {
       validator: (rule, value, callback) => {
         if (value && form.parent_member_id) {
           if (value === form.parent_member_id) {
-            callback(new Error('家长和小孩不能是同一条记录'))
+            callback(new Error(i18n.t('validCaseSamePersonError')))
             return
           }
         }
@@ -207,7 +209,7 @@ const formRules = computed(() => ({
       trigger: 'change'
     }
   ],
-  punishment_level: [{ required: true, message: '请选择惩罚级别', trigger: 'change' }]
+  punishment_level: [{ required: true, message: i18n.t('validCaseLevelRequired'), trigger: 'change' }]
 }))
 
 function getMemberName(m) {
@@ -216,7 +218,7 @@ function getMemberName(m) {
 }
 
 function statusLabel(s) {
-  return { pending: '待执行', active: '执行中', completed: '已完成' }[s] ?? s
+  return { pending: i18n.t('statusPending'), active: i18n.t('statusActive'), completed: i18n.t('statusCompleted') }[s] ?? s
 }
 function statusTagType(s) {
   return { pending: 'info', active: 'success', completed: '' }[s] ?? 'info'
@@ -237,7 +239,7 @@ async function load() {
     cases.value = cRes.data ?? []
     members.value = mRes.data ?? []
   } catch {
-    ElMessage.error('加载失败')
+    ElMessage.error(i18n.t('loadCasesFailed'))
   } finally {
     loading.value = false
   }
@@ -301,13 +303,13 @@ function handleTxtImport(event) {
       parsedPreview.steps = steps
       form.prep_items = JSON.stringify(prepItems)
       form.parsed_steps = JSON.stringify(steps)
-      ElMessage.success(`已解析：${prepItems.length} 项准备物品，${steps.length} 个执行步骤`)
+      ElMessage.success(`${i18n.t('prepItemsLabel')}: ${prepItems.length}, ${i18n.t('execStepsLabel')}: ${steps.length}`)
     } catch (err) {
-      ElMessage.error(err.response?.data?.message || 'TXT解析失败')
+      ElMessage.error(err.response?.data?.message || i18n.t('loadFailed'))
     }
   }
   reader.onerror = () => {
-    ElMessage.error('文件读取失败')
+    ElMessage.error(i18n.t('loadFailed'))
   }
   reader.readAsText(file, 'utf-8')
   event.target.value = ''
@@ -321,30 +323,32 @@ async function handleSave() {
   try {
     if (editingId.value) {
       await updateCase(editingId.value, { ...form })
-      ElMessage.success('更新成功')
+      ElMessage.success(i18n.t('updateSuccess'))
     } else {
       await createCase({ ...form })
-      ElMessage.success('创建成功')
+      ElMessage.success(i18n.t('addSuccess'))
     }
     dialogVisible.value = false
     await load()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '操作失败')
+    ElMessage.error(e.response?.data?.message || i18n.t('saveFailed'))
   } finally {
     saving.value = false
   }
 }
 
 async function handleDelete(row) {
-  await ElMessageBox.confirm(`确定要删除案件"${row.title}"吗？`, '确认删除', {
-    type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消'
-  })
+  await ElMessageBox.confirm(
+    i18n.t('confirmDeleteCase'),
+    i18n.t('confirmDeleteTitle'),
+    { type: 'warning', confirmButtonText: i18n.t('confirmDeleteBtn'), cancelButtonText: i18n.t('btnCancel') }
+  )
   try {
     await deleteCase(row.id)
-    ElMessage.success('删除成功')
+    ElMessage.success(i18n.t('deleteSuccess'))
     await load()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '删除失败')
+    ElMessage.error(e.response?.data?.message || i18n.t('deleteFailed'))
   }
 }
 

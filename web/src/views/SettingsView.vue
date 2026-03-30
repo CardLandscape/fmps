@@ -1,66 +1,69 @@
 <template>
   <el-card shadow="never" style="max-width: 560px">
     <template #header>
-      <span style="font-weight: 600">系统设置</span>
+      <span style="font-weight: 600">{{ i18n.t('settingsPageTitle') }}</span>
     </template>
 
     <el-form
       ref="formRef"
       :model="form"
       :rules="formRules"
-      label-width="120px"
+      label-width="140px"
       v-loading="loading"
     >
-      <el-form-item label="管理员用户名" prop="admin_username">
-        <el-input v-model="form.admin_username" placeholder="管理员用户名" />
+      <el-form-item :label="i18n.t('labelAdminUsername')" prop="admin_username">
+        <el-input v-model="form.admin_username" :placeholder="i18n.t('placeholderAdminUsername')" />
       </el-form-item>
-      <el-form-item label="新密码" prop="new_password">
+      <el-form-item :label="i18n.t('labelNewPassword')" prop="new_password">
         <el-input
           v-model="form.new_password"
           type="password"
-          placeholder="留空则不修改密码"
+          :placeholder="i18n.t('placeholderNewPassword')"
           show-password
         />
       </el-form-item>
-      <el-form-item label="确认新密码" prop="confirm_password">
+      <el-form-item :label="i18n.t('labelConfirmPassword')" prop="confirm_password">
         <el-input
           v-model="form.confirm_password"
           type="password"
-          placeholder="再次输入新密码"
+          :placeholder="i18n.t('placeholderConfirmPassword')"
           show-password
         />
       </el-form-item>
 
       <el-alert
-        title="留空密码字段则不修改密码"
+        :title="i18n.t('hintNoChangePassword')"
         type="info"
         :closable="false"
         show-icon
         style="margin-bottom: 20px"
       />
 
-      <el-divider content-position="left">授权密码</el-divider>
-      <el-form-item label="授权密码">
+      <el-divider content-position="left">{{ i18n.t('sectionAuthPassword') }}</el-divider>
+      <el-form-item :label="i18n.t('labelAuthPasswordSetting')">
         <el-input
           v-model="form.authorization_password"
           type="password"
           show-password
-          placeholder="用于撤回扣分的授权密码（默认：123456）"
+          :placeholder="i18n.t('placeholderAuthPasswordSetting')"
         />
       </el-form-item>
 
       <el-form-item>
-        <el-button type="primary" :loading="saving" @click="handleSave">保存设置</el-button>
-        <el-button @click="loadSettings">重 置</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">{{ i18n.t('btnSaveSettings') }}</el-button>
+        <el-button @click="loadSettings">{{ i18n.t('btnResetSettings') }}</el-button>
       </el-form-item>
     </el-form>
   </el-card>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getSettings, updateSettings } from '@/utils/api'
+import { useI18n } from '@/utils/i18n'
+
+const i18n = useI18n()
 
 const loading = ref(false)
 const saving = ref(false)
@@ -73,18 +76,19 @@ const form = reactive({
   authorization_password: ''
 })
 
-const validateConfirmPassword = (_rule, value, callback) => {
-  if (form.new_password && value !== form.new_password) {
-    callback(new Error('两次输入的密码不一致'))
-  } else {
-    callback()
+const formRules = computed(() => {
+  const validateConfirmPassword = (_rule, value, callback) => {
+    if (form.new_password && value !== form.new_password) {
+      callback(new Error(i18n.t('validPasswordsMismatch')))
+    } else {
+      callback()
+    }
   }
-}
-
-const formRules = {
-  admin_username: [{ required: true, message: '请输入管理员用户名', trigger: 'blur' }],
-  confirm_password: [{ validator: validateConfirmPassword, trigger: 'blur' }]
-}
+  return {
+    admin_username: [{ required: true, message: i18n.t('validAdminUsernameRequired'), trigger: 'blur' }],
+    confirm_password: [{ validator: validateConfirmPassword, trigger: 'blur' }]
+  }
+})
 
 async function loadSettings() {
   loading.value = true
@@ -95,7 +99,7 @@ async function loadSettings() {
     form.confirm_password = ''
     form.authorization_password = ''
   } catch {
-    ElMessage.error('加载设置失败')
+    ElMessage.error(i18n.t('loadSettingsFailed'))
   } finally {
     loading.value = false
   }
@@ -104,12 +108,6 @@ async function loadSettings() {
 async function handleSave() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
-
-  if (form.new_password && form.new_password !== form.confirm_password) {
-    ElMessage.error('两次输入的密码不一致')
-    return
-  }
-
   saving.value = true
   try {
     const payload = { admin_username: form.admin_username }
@@ -120,11 +118,12 @@ async function handleSave() {
       payload.authorization_password = form.authorization_password
     }
     await updateSettings(payload)
-    ElMessage.success('设置保存成功')
+    ElMessage.success(i18n.t('settingsSaved'))
     form.new_password = ''
     form.confirm_password = ''
+    form.authorization_password = ''
   } catch (e) {
-    ElMessage.error(e.response?.data?.error || '保存失败')
+    ElMessage.error(e.response?.data?.error || i18n.t('saveSettingsFailed'))
   } finally {
     saving.value = false
   }

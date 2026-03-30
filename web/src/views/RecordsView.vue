@@ -2,11 +2,11 @@
   <el-card shadow="never">
     <template #header>
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px">
-        <span style="font-weight: 600">惩戒记录</span>
+        <span style="font-weight: 600">{{ i18n.t('recordsPageTitle') }}</span>
         <div style="display: flex; gap: 12px; align-items: center">
           <el-select
             v-model="filterMemberId"
-            placeholder="筛选成员"
+            :placeholder="i18n.t('filterByMember')"
             clearable
             style="width: 160px"
             @change="loadRecords"
@@ -14,33 +14,33 @@
             <el-option
               v-for="m in members"
               :key="m.id"
-              :label="m.name"
+              :label="getMemberDisplayName(m)"
               :value="m.id"
             />
           </el-select>
           <el-button type="primary" @click="openDialog">
             <el-icon><Plus /></el-icon>
-            添加记录
+            {{ i18n.t('btnAddRecord') }}
           </el-button>
         </div>
       </div>
     </template>
 
     <el-table :data="records" v-loading="loading" stripe style="width: 100%">
-      <el-table-column prop="member_name" label="成员" width="120" />
-      <el-table-column prop="rule_name" label="违规项目" min-width="140" />
-      <el-table-column prop="points" label="分值" width="80">
+      <el-table-column prop="member_name" :label="i18n.t('colMember')" width="120" />
+      <el-table-column prop="rule_name" :label="i18n.t('colViolation')" min-width="140" />
+      <el-table-column prop="points" :label="i18n.t('colPoints')" width="80">
         <template #default="{ row }">
           <el-tag type="danger">{{ row.points }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="note" label="备注" min-width="150" show-overflow-tooltip />
-      <el-table-column prop="occurred_at" label="发生时间" width="160">
+      <el-table-column prop="note" :label="i18n.t('colNote')" min-width="150" show-overflow-tooltip />
+      <el-table-column prop="occurred_at" :label="i18n.t('colOccurredAt')" width="160">
         <template #default="{ row }">{{ formatDate(row.occurred_at) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="100" fixed="right">
+      <el-table-column :label="i18n.t('colActions')" width="100" fixed="right">
         <template #default="{ row }">
-          <el-button size="small" type="danger" plain @click="handleDelete(row)">删除</el-button>
+          <el-button size="small" type="danger" plain @click="handleDelete(row)">{{ i18n.t('btnDelete') }}</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -48,25 +48,25 @@
 
   <el-dialog
     v-model="dialogVisible"
-    title="添加惩戒记录"
+    :title="i18n.t('dialogAddRecord')"
     width="500px"
     @closed="resetForm"
   >
-    <el-form ref="formRef" :model="form" :rules="formRules" label-width="90px">
-      <el-form-item label="成员" prop="member_id">
-        <el-select v-model="form.member_id" placeholder="请选择成员" style="width: 100%">
+    <el-form ref="formRef" :model="form" :rules="formRules" label-width="110px">
+      <el-form-item :label="i18n.t('labelRecordMember')" prop="member_id">
+        <el-select v-model="form.member_id" :placeholder="i18n.t('placeholderRecordMember')" style="width: 100%">
           <el-option
             v-for="m in members"
             :key="m.id"
-            :label="m.name"
+            :label="getMemberDisplayName(m)"
             :value="m.id"
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="惩戒规则" prop="rule_id">
+      <el-form-item :label="i18n.t('labelRecordRule')" prop="rule_id">
         <el-select
           v-model="form.rule_id"
-          placeholder="请选择规则"
+          :placeholder="i18n.t('placeholderRecordRule')"
           style="width: 100%"
           @change="onRuleChange"
         >
@@ -78,17 +78,17 @@
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="分值" prop="points">
+      <el-form-item :label="i18n.t('labelRecordPoints')" prop="points">
         <el-input-number v-model="form.points" :min="1" :max="1000" style="width: 100%" />
       </el-form-item>
-      <el-form-item label="备注" prop="note">
-        <el-input v-model="form.note" placeholder="可选备注" />
+      <el-form-item :label="i18n.t('labelRecordNote')" prop="note">
+        <el-input v-model="form.note" :placeholder="i18n.t('placeholderRecordNote')" />
       </el-form-item>
-      <el-form-item label="发生时间" prop="occurred_at">
+      <el-form-item :label="i18n.t('labelRecordTime')" prop="occurred_at">
         <el-date-picker
           v-model="form.occurred_at"
           type="datetime"
-          placeholder="选择时间"
+          placeholder="-"
           style="width: 100%"
           format="YYYY-MM-DD HH:mm"
           value-format="YYYY-MM-DDTHH:mm:ssZ"
@@ -96,16 +96,20 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="dialogVisible = false">取 消</el-button>
-      <el-button type="primary" :loading="saving" @click="handleSave">确 定</el-button>
+      <el-button @click="dialogVisible = false">{{ i18n.t('btnCancel') }}</el-button>
+      <el-button type="primary" :loading="saving" @click="handleSave">{{ i18n.t('btnConfirm') }}</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
 import { getRecords, createRecord, deleteRecord, getMembers, getRules } from '@/utils/api'
+import { useI18n } from '@/utils/i18n'
+
+const i18n = useI18n()
 
 const loading = ref(false)
 const saving = ref(false)
@@ -124,10 +128,15 @@ const form = reactive({
   occurred_at: new Date().toISOString()
 })
 
-const formRules = {
-  member_id: [{ required: true, message: '请选择成员', trigger: 'change' }],
-  rule_id: [{ required: true, message: '请选择规则', trigger: 'change' }],
-  points: [{ required: true, message: '请输入分值', trigger: 'blur' }]
+const formRules = computed(() => ({
+  member_id: [{ required: true, message: i18n.t('validRecordMemberRequired'), trigger: 'change' }],
+  rule_id: [{ required: true, message: i18n.t('validRecordRuleRequired'), trigger: 'change' }],
+  points: [{ required: true, message: i18n.t('validRecordPointsRequired'), trigger: 'blur' }]
+}))
+
+function getMemberDisplayName(m) {
+  if (!m) return '-'
+  return m.name_cn || m.name_en || m.name || '-'
 }
 
 function formatDate(dateStr) {
@@ -146,7 +155,7 @@ async function loadRecords() {
     const res = await getRecords(params)
     records.value = res.data?.records ?? res.data ?? []
   } catch {
-    ElMessage.error('加载记录失败')
+    ElMessage.error(i18n.t('loadRecordsFailed'))
   } finally {
     loading.value = false
   }
@@ -158,7 +167,7 @@ async function loadMembersAndRules() {
     members.value = mRes.data ?? []
     rulesList.value = rRes.data ?? []
   } catch {
-    ElMessage.error('加载数据失败')
+    ElMessage.error(i18n.t('loadDataFailed'))
   }
 }
 
@@ -186,28 +195,32 @@ async function handleSave() {
   saving.value = true
   try {
     await createRecord({ ...form })
-    ElMessage.success('记录添加成功')
+    ElMessage.success(i18n.t('recordAdded'))
     dialogVisible.value = false
     await loadRecords()
   } catch (e) {
-    ElMessage.error(e.response?.data?.error || '添加失败')
+    ElMessage.error(e.response?.data?.error || i18n.t('saveFailed'))
   } finally {
     saving.value = false
   }
 }
 
 async function handleDelete(row) {
-  await ElMessageBox.confirm('确定要删除此条记录吗？', '确认删除', {
-    type: 'warning',
-    confirmButtonText: '确定',
-    cancelButtonText: '取消'
-  })
+  await ElMessageBox.confirm(
+    i18n.t('confirmDeleteRecord'),
+    i18n.t('confirmDeleteTitle'),
+    {
+      type: 'warning',
+      confirmButtonText: i18n.t('confirmDeleteBtn'),
+      cancelButtonText: i18n.t('btnCancel')
+    }
+  )
   try {
     await deleteRecord(row.id)
-    ElMessage.success('删除成功')
+    ElMessage.success(i18n.t('deleteSuccess'))
     await loadRecords()
   } catch (e) {
-    ElMessage.error(e.response?.data?.error || '删除失败')
+    ElMessage.error(e.response?.data?.error || i18n.t('deleteFailed'))
   }
 }
 
