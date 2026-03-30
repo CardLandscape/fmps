@@ -17,7 +17,10 @@ type Case struct {
 	PunishmentLevel   string     `json:"punishment_level"`    // A/B/C/D
 	PrepItems         string     `json:"prep_items"`          // JSON array of preparation item strings
 	ParsedSteps       string     `json:"parsed_steps"`        // JSON array of step strings
-	CurrentStepIndex  int        `json:"current_step_index"`  // -1=prep phase, 0+=executing
+	// CurrentStepIndex tracks execution progress:
+	//   -1 = preparation phase (items must be checked before starting)
+	//   0+ = index of the currently active execution step
+	CurrentStepIndex  int        `json:"current_step_index"`
 	FinalGrade        string     `json:"final_grade"`         // 满分/优/良/达标/不达标/态度不端正
 	TxtFilename       string     `json:"txt_filename"`        // original filename of imported TXT
 	Status            string     `json:"status"`              // pending / active / completed

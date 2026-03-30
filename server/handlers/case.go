@@ -72,8 +72,8 @@ func ParsePunishmentProcess(text string) []PunishmentStep {
 // timeLineRegex matches lines that start with a time like "21:00" or "7:00"
 var timeLineRegex = regexp.MustCompile(`^\d{1,2}:\d{2}`)
 
-// levelSectionRegex matches level section headers like "A级", "B级", etc.
-var levelSectionRegex = regexp.MustCompile(`^([A-D])级`)
+// levelSectionRegex matches exact level section headers like "A级", "B级", etc.
+var levelSectionRegex = regexp.MustCompile(`^([A-D])级$`)
 
 // ParseTxtByLevel parses a TXT file and extracts (prepItems, steps) for the given level (A/B/C/D).
 // Preparation items are taken from a "惩罚工具" section (if present) and from non-timestamped
@@ -503,7 +503,7 @@ func (h *CaseHandler) CompleteStep(c *gin.Context) {
 
 	// All steps done – complete the case
 	cas.Status = "completed"
-	grade := h.computeCaseGrade(uint(id))
+	grade := h.computeCaseGrade(cas.ID)
 	cas.FinalGrade = grade
 	if err := h.DB.Save(&cas).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "更新失败"})
@@ -526,7 +526,7 @@ func (h *CaseHandler) CompletePunishment(c *gin.Context) {
 		return
 	}
 
-	grade := h.computeCaseGrade(uint(id))
+	grade := h.computeCaseGrade(cas.ID)
 	cas.Status = "completed"
 	cas.FinalGrade = grade
 	if err := h.DB.Save(&cas).Error; err != nil {

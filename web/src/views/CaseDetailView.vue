@@ -87,7 +87,7 @@
       <div style="margin-bottom:16px">
         <el-progress
           :percentage="stepProgress"
-          :format="() => `${caseData.current_step_index + 1} / ${parsedSteps.length}`"
+          :format="() => `${Math.min((caseData.current_step_index ?? 0) + 1, parsedSteps.length)} / ${parsedSteps.length}`"
           status="striped"
           striped-flow
         />
