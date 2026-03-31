@@ -25,6 +25,7 @@ type Case struct {
 	TxtFilename       string     `json:"txt_filename"`        // original filename of imported TXT
 	Status            string     `json:"status"`              // pending / active / completed
 	StartTime         *time.Time `json:"start_time"`
+	EndTime           *time.Time `json:"end_time"`            // when punishment was completed/ended
 	CreatedAt         time.Time  `json:"created_at"`
 	UpdatedAt         time.Time  `json:"updated_at"`
 }

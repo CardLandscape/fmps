@@ -72,13 +72,50 @@ func ParsePunishmentProcess(text string) []PunishmentStep {
 // timeLineRegex matches lines that start with a time like "21:00" or "7:00"
 var timeLineRegex = regexp.MustCompile(`^\d{1,2}:\d{2}`)
 
-// levelSectionRegex matches exact level section headers like "A级", "B级", etc.
+// levelSectionRegex matches exact level section headers like "A级", "B级", etc. (legacy, kept for reference)
 var levelSectionRegex = regexp.MustCompile(`^([A-D])级$`)
 
-// ParseTxtByLevel parses a TXT file and extracts (prepItems, steps) for the given level (A/B/C/D).
-// Preparation items are taken from a "惩罚工具" section (if present) and from non-timestamped
-// lines before the first timestamped step within the level's section.
-// Execution steps are the timestamped lines within the level's "惩罚流程" section.
+// levelHeaderRegex matches any "X级" standalone line (supports dynamic/user-defined level names)
+var levelHeaderRegex = regexp.MustCompile(`^(.+)级$`)
+
+// ParseTxtLevels scans the "惩罚流程" section of a TXT file and returns all level names found.
+// Level names are the part before "级" in headers like "A级", "初级", "高级惩罚级", etc.
+func ParseTxtLevels(content string) []string {
+	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
+	inFlowSection := false
+	var levels []string
+	seen := map[string]bool{}
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if strings.Contains(trimmed, "惩罚流程") && !inFlowSection {
+			inFlowSection = true
+			continue
+		}
+		if !inFlowSection {
+			continue
+		}
+		// Skip timestamped step lines
+		if timeLineRegex.MatchString(trimmed) {
+			continue
+		}
+		m := levelHeaderRegex.FindStringSubmatch(trimmed)
+		if m != nil {
+			levelName := m[1]
+			if !seen[levelName] {
+				seen[levelName] = true
+				levels = append(levels, levelName)
+			}
+		}
+	}
+	return levels
+}
+
+// ParseTxtByLevel parses a TXT file and extracts (prepItems, steps) for the given level.
+// Level can be any name like "A", "B", "初级", "高级" etc.
+// The target section header in the TXT is expected to be "<level>级".
 func ParseTxtByLevel(content, level string) (prepItems []string, steps []string) {
 	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
 
@@ -98,7 +135,7 @@ func ParseTxtByLevel(content, level string) (prepItems []string, steps []string)
 		if inToolSection && (strings.Contains(trimmed, "惩罚成绩") ||
 			strings.Contains(trimmed, "惩罚姿势") ||
 			strings.Contains(trimmed, "惩罚流程") ||
-			levelSectionRegex.MatchString(trimmed)) {
+			isLevelHeader(trimmed)) {
 			inToolSection = false
 			continue
 		}
@@ -129,14 +166,13 @@ func ParseTxtByLevel(content, level string) (prepItems []string, steps []string)
 			continue
 		}
 		// Detect target level header within flow section
-		if trimmed == targetHeader || strings.HasPrefix(trimmed, targetHeader) {
+		if !inLevelSection && (trimmed == targetHeader || strings.HasPrefix(trimmed, targetHeader)) {
 			inLevelSection = true
 			continue
 		}
-		// End of this level's section: next level header or a non-content separator
+		// End of this level's section: another level header encountered
 		if inLevelSection {
-			m := levelSectionRegex.FindStringSubmatch(trimmed)
-			if m != nil && m[1] != level {
+			if isLevelHeader(trimmed) && !isCurrentLevel(trimmed, level) {
 				break
 			}
 			if timeLineRegex.MatchString(trimmed) {
@@ -158,6 +194,17 @@ func ParseTxtByLevel(content, level string) (prepItems []string, steps []string)
 	prepItems = cleanPrep
 
 	return prepItems, steps
+}
+
+// isLevelHeader returns true if the line is a non-timestamped level header (matches "X级" pattern).
+func isLevelHeader(trimmed string) bool {
+	return !timeLineRegex.MatchString(trimmed) && levelHeaderRegex.MatchString(trimmed)
+}
+
+// isCurrentLevel returns true if the level header line corresponds to the given level name.
+func isCurrentLevel(trimmed, level string) bool {
+	m := levelHeaderRegex.FindStringSubmatch(trimmed)
+	return m != nil && m[1] == level
 }
 
 // splitPrepItems splits a preparation line by common separators (、，,，句末。) into individual items
@@ -306,7 +353,22 @@ type ParseTxtRequest struct {
 	TxtFilename string `json:"txt_filename"`
 }
 
+// ParseTxtLevelsHandler parses a TXT file and returns all level names found in the "惩罚流程" section.
+// POST /cases/parse-txt-levels
+func (h *CaseHandler) ParseTxtLevelsHandler(c *gin.Context) {
+	var req struct {
+		Content string `json:"content"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "请求格式错误"})
+		return
+	}
+	levels := ParseTxtLevels(req.Content)
+	c.JSON(http.StatusOK, gin.H{"levels": levels})
+}
+
 // ParseTxt parses a TXT file content and returns prep items + steps for the given level.
+// Level can be any string (no longer restricted to A/B/C/D).
 // POST /cases/parse-txt
 func (h *CaseHandler) ParseTxt(c *gin.Context) {
 	var req ParseTxtRequest
@@ -314,9 +376,9 @@ func (h *CaseHandler) ParseTxt(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "请求格式错误"})
 		return
 	}
-	level := strings.ToUpper(strings.TrimSpace(req.Level))
-	if level != "A" && level != "B" && level != "C" && level != "D" {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "惩罚级别只能为 A/B/C/D"})
+	level := strings.TrimSpace(req.Level)
+	if level == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "请指定惩罚级别"})
 		return
 	}
 	prepItems, steps := ParseTxtByLevel(req.Content, level)
@@ -346,9 +408,9 @@ func (h *CaseHandler) Create(c *gin.Context) {
 
 	// Validate punishment level if provided
 	if cas.PunishmentLevel != "" {
-		lvl := strings.ToUpper(cas.PunishmentLevel)
-		if lvl != "A" && lvl != "B" && lvl != "C" && lvl != "D" {
-			c.JSON(http.StatusBadRequest, gin.H{"message": "惩罚级别只能为 A/B/C/D"})
+		lvl := strings.TrimSpace(cas.PunishmentLevel)
+		if lvl == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "惩罚级别不能为空"})
 			return
 		}
 		cas.PunishmentLevel = lvl
@@ -397,11 +459,7 @@ func (h *CaseHandler) Update(c *gin.Context) {
 
 	// Validate punishment level if provided
 	if cas.PunishmentLevel != "" {
-		lvl := strings.ToUpper(cas.PunishmentLevel)
-		if lvl != "A" && lvl != "B" && lvl != "C" && lvl != "D" {
-			c.JSON(http.StatusBadRequest, gin.H{"message": "惩罚级别只能为 A/B/C/D"})
-			return
-		}
+		lvl := strings.TrimSpace(cas.PunishmentLevel)
 		cas.PunishmentLevel = lvl
 	}
 
@@ -502,7 +560,9 @@ func (h *CaseHandler) CompleteStep(c *gin.Context) {
 	}
 
 	// All steps done – complete the case
+	now := time.Now()
 	cas.Status = "completed"
+	cas.EndTime = &now
 	grade := h.computeCaseGrade(cas.ID)
 	cas.FinalGrade = grade
 	if err := h.DB.Save(&cas).Error; err != nil {
@@ -526,9 +586,11 @@ func (h *CaseHandler) CompletePunishment(c *gin.Context) {
 		return
 	}
 
+	now := time.Now()
 	grade := h.computeCaseGrade(cas.ID)
 	cas.Status = "completed"
 	cas.FinalGrade = grade
+	cas.EndTime = &now
 	if err := h.DB.Save(&cas).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "更新失败"})
 		return

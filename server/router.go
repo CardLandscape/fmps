@@ -97,6 +97,7 @@ func SetupRouter(db *gorm.DB, cfg Config) *gin.Engine {
 		api.GET("/cases", caseHandler.List)
 		api.POST("/cases", caseHandler.Create)
 		api.POST("/cases/parse-txt", caseHandler.ParseTxt)
+		api.POST("/cases/parse-txt-levels", caseHandler.ParseTxtLevelsHandler)
 		api.GET("/cases/:id", caseHandler.Get)
 		api.PUT("/cases/:id", caseHandler.Update)
 		api.DELETE("/cases/:id", caseHandler.Delete)
