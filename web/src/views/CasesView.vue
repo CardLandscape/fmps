@@ -91,24 +91,15 @@
       <!-- Punishment workflow section -->
       <el-divider content-position="left">{{ i18n.t('sectionPunishment') }}</el-divider>
 
-      <el-form-item :label="i18n.t('labelPunishLevel')" prop="punishment_level">
-        <el-radio-group v-model="form.punishment_level">
-          <el-radio-button value="A">A级</el-radio-button>
-          <el-radio-button value="B">B级</el-radio-button>
-          <el-radio-button value="C">C级</el-radio-button>
-          <el-radio-button value="D">D级</el-radio-button>
-        </el-radio-group>
-      </el-form-item>
-
+      <!-- TXT import first to detect levels -->
       <el-form-item :label="i18n.t('labelImportTxt')">
         <div style="width:100%">
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
-            <el-button size="small" @click="triggerTxtImport" :disabled="!form.punishment_level">
+            <el-button size="small" @click="triggerTxtImport">
               <el-icon><Upload /></el-icon>
               {{ i18n.t('btnImportTxt') }}
             </el-button>
             <span v-if="form.txt_filename" style="font-size:12px;color:#606266">{{ form.txt_filename }}</span>
-            <span v-if="!form.punishment_level" style="font-size:12px;color:#f56c6c">{{ i18n.t('selectLevelFirst') }}</span>
             <input
               ref="txtFileInput"
               type="file"
@@ -117,27 +108,109 @@
               @change="handleTxtImport"
             />
           </div>
+          <div style="font-size:12px;color:#909399">{{ i18n.t('txtImportHint') }}</div>
+        </div>
+      </el-form-item>
 
-          <!-- Parsed preview -->
-          <div v-if="parsedPreview.prepItems.length || parsedPreview.steps.length">
-            <div v-if="parsedPreview.prepItems.length" style="margin-bottom:8px">
-              <div style="font-weight:600;font-size:13px;margin-bottom:4px">{{ i18n.t('prepItemsLabel') }}（{{ parsedPreview.prepItems.length }}）：</div>
+      <!-- Dynamic level selector -->
+      <el-form-item :label="i18n.t('labelPunishLevel')" prop="punishment_level">
+        <div style="width:100%">
+          <!-- Detected levels as radio buttons -->
+          <div v-if="detectedLevels.length > 0" style="margin-bottom:8px">
+            <div style="font-size:12px;color:#67c23a;margin-bottom:6px">
+              {{ i18n.t('detectedLevels').replace('{n}', detectedLevels.length) }}
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+              <el-tag
+                v-for="(lv, idx) in detectedLevels"
+                :key="idx"
+                :type="form.punishment_level === lv ? 'primary' : 'info'"
+                style="cursor:pointer;user-select:none"
+                @click="selectLevel(lv)"
+              >
+                <span>{{ lv }}级</span>
+                <el-icon
+                  style="margin-left:4px;vertical-align:middle"
+                  @click.stop="removeDetectedLevel(idx)"
+                ><Close /></el-icon>
+              </el-tag>
+              <el-tag
+                type="success"
+                style="cursor:pointer"
+                @click="showAddLevelInput = true"
+                v-if="!showAddLevelInput"
+              >+ {{ i18n.t('btnAddLevel') }}</el-tag>
+            </div>
+            <!-- Inline add level -->
+            <div v-if="showAddLevelInput" style="display:flex;gap:6px;margin-bottom:6px">
+              <el-input
+                v-model="newLevelName"
+                size="small"
+                :placeholder="i18n.t('placeholderCustomLevel')"
+                style="width:160px"
+                @keyup.enter="addCustomLevel"
+              />
+              <el-button size="small" type="primary" @click="addCustomLevel">{{ i18n.t('btnConfirm') }}</el-button>
+              <el-button size="small" @click="showAddLevelInput = false; newLevelName = ''">{{ i18n.t('btnCancel') }}</el-button>
+            </div>
+          </div>
+          <!-- No levels detected yet: show manual input -->
+          <div v-else style="margin-bottom:8px">
+            <div style="font-size:12px;color:#909399;margin-bottom:6px">
+              {{ form.txt_filename ? i18n.t('noLevelsDetected') : i18n.t('importTxtFirst') }}
+            </div>
+          </div>
+          <!-- Always show manual level input -->
+          <div style="display:flex;align-items:center;gap:8px">
+            <el-input
+              v-model="form.punishment_level"
+              size="small"
+              :placeholder="i18n.t('levelSelector')"
+              style="width:200px"
+              @change="onLevelChange"
+            />
+            <span style="font-size:13px;color:#606266">级</span>
+            <span v-if="form.punishment_level" style="font-size:12px;color:#409eff">
+              → {{ form.punishment_level }}级
+            </span>
+          </div>
+          <div v-if="!form.punishment_level" style="font-size:12px;color:#f56c6c;margin-top:4px">
+            {{ i18n.t('validCaseLevelRequired') }}
+          </div>
+        </div>
+      </el-form-item>
+
+      <!-- Parsed preview with editable items -->
+      <el-form-item v-if="parsedPreview.prepItems.length || parsedPreview.steps.length" :label="i18n.t('prepItemsLabel')">
+        <div style="width:100%">
+          <div v-if="parsedPreview.prepItems.length" style="margin-bottom:12px">
+            <div style="font-weight:600;font-size:13px;margin-bottom:6px">{{ i18n.t('prepItemsLabel') }}（{{ parsedPreview.prepItems.length }}）：</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">
               <el-tag
                 v-for="(item, i) in parsedPreview.prepItems"
                 :key="i"
+                closable
                 size="small"
-                style="margin-right:6px;margin-bottom:4px"
+                @close="removePrepItem(i)"
               >{{ item }}</el-tag>
             </div>
-            <div v-if="parsedPreview.steps.length">
-              <div style="font-weight:600;font-size:13px;margin-bottom:4px">{{ i18n.t('execStepsLabel') }}（{{ parsedPreview.steps.length }}）：</div>
-              <div v-for="(step, i) in parsedPreview.steps" :key="i" style="font-size:12px;color:#606266;margin-bottom:2px">
-                {{ i + 1 }}. {{ step }}
-              </div>
+            <div style="display:flex;gap:6px">
+              <el-input
+                v-model="newPrepItem"
+                size="small"
+                :placeholder="'+ 添加准备物品'"
+                style="width:180px"
+                @keyup.enter="addPrepItem"
+              />
+              <el-button size="small" @click="addPrepItem">{{ i18n.t('btnConfirm') }}</el-button>
             </div>
           </div>
-          <div style="font-size:12px;color:#909399;margin-top:4px">
-            {{ i18n.t('txtImportHint') }}
+          <div v-if="parsedPreview.steps.length">
+            <div style="font-weight:600;font-size:13px;margin-bottom:4px">{{ i18n.t('execStepsLabel') }}（{{ parsedPreview.steps.length }}）：</div>
+            <div v-for="(step, i) in parsedPreview.steps" :key="i" style="font-size:12px;color:#606266;margin-bottom:2px;display:flex;align-items:center;gap:6px">
+              <span style="color:#409eff;font-weight:600;min-width:20px">{{ i + 1 }}.</span>
+              <span>{{ step }}</span>
+            </div>
           </div>
         </div>
       </el-form-item>
@@ -154,8 +227,8 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from '@/utils/i18n'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Upload } from '@element-plus/icons-vue'
-import { getCases, createCase, updateCase, deleteCase, getMembers, parseCaseTxt } from '@/utils/api'
+import { Plus, Upload, Close } from '@element-plus/icons-vue'
+import { getCases, createCase, updateCase, deleteCase, getMembers, parseCaseTxt, parseCaseTxtLevels } from '@/utils/api'
 
 const router = useRouter()
 const i18n = useI18n()
@@ -169,6 +242,11 @@ const formRef = ref(null)
 const txtFileInput = ref(null)
 
 const parsedPreview = reactive({ prepItems: [], steps: [] })
+const detectedLevels = ref([])
+const showAddLevelInput = ref(false)
+const newLevelName = ref('')
+const newPrepItem = ref('')
+let rawTxtContent = ''
 
 const defaultForm = () => ({
   title: '',
@@ -249,6 +327,11 @@ function openDialog(row = null) {
   Object.assign(form, defaultForm())
   parsedPreview.prepItems = []
   parsedPreview.steps = []
+  detectedLevels.value = []
+  showAddLevelInput.value = false
+  newLevelName.value = ''
+  newPrepItem.value = ''
+  rawTxtContent = ''
   if (row) {
     editingId.value = row.id
     form.title = row.title ?? ''
@@ -267,6 +350,10 @@ function openDialog(row = null) {
     if (form.parsed_steps) {
       try { parsedPreview.steps = JSON.parse(form.parsed_steps) } catch { /* ignore */ }
     }
+    // If there's a saved level, show it as a detected level option
+    if (form.punishment_level) {
+      detectedLevels.value = [form.punishment_level]
+    }
   } else {
     editingId.value = null
   }
@@ -278,6 +365,11 @@ function resetForm() {
   editingId.value = null
   parsedPreview.prepItems = []
   parsedPreview.steps = []
+  detectedLevels.value = []
+  showAddLevelInput.value = false
+  newLevelName.value = ''
+  newPrepItem.value = ''
+  rawTxtContent = ''
 }
 
 function triggerTxtImport() {
@@ -290,20 +382,24 @@ function handleTxtImport(event) {
   const reader = new FileReader()
   reader.onload = async (e) => {
     const content = e.target?.result ?? ''
+    rawTxtContent = content
     form.txt_filename = file.name
     // Store raw content for legacy compatibility
     form.punishment_process = content
-    // Parse via backend
+    // First detect levels from TXT
     try {
-      const res = await parseCaseTxt({ content, level: form.punishment_level, txt_filename: file.name })
-      const data = res.data
-      const prepItems = data.prep_items ?? []
-      const steps = data.steps ?? []
-      parsedPreview.prepItems = prepItems
-      parsedPreview.steps = steps
-      form.prep_items = JSON.stringify(prepItems)
-      form.parsed_steps = JSON.stringify(steps)
-      ElMessage.success(`${i18n.t('prepItemsLabel')}: ${prepItems.length}, ${i18n.t('execStepsLabel')}: ${steps.length}`)
+      const lvlRes = await parseCaseTxtLevels({ content })
+      const levels = lvlRes.data?.levels ?? []
+      detectedLevels.value = levels
+      if (levels.length > 0 && !form.punishment_level) {
+        // Auto-select first level
+        form.punishment_level = levels[0]
+        await parseForLevel(content, levels[0])
+      } else if (form.punishment_level) {
+        await parseForLevel(content, form.punishment_level)
+      } else if (levels.length === 0) {
+        ElMessage.warning(i18n.t('noLevelsDetected'))
+      }
     } catch (err) {
       ElMessage.error(err.response?.data?.message || i18n.t('loadFailed'))
     }
@@ -313,6 +409,73 @@ function handleTxtImport(event) {
   }
   reader.readAsText(file, 'utf-8')
   event.target.value = ''
+}
+
+async function parseForLevel(content, level) {
+  try {
+    const res = await parseCaseTxt({ content, level, txt_filename: form.txt_filename })
+    const data = res.data
+    const prepItems = data.prep_items ?? []
+    const steps = data.steps ?? []
+    parsedPreview.prepItems = prepItems
+    parsedPreview.steps = steps
+    form.prep_items = JSON.stringify(prepItems)
+    form.parsed_steps = JSON.stringify(steps)
+    ElMessage.success(`${i18n.t('prepItemsLabel')}: ${prepItems.length}, ${i18n.t('execStepsLabel')}: ${steps.length}`)
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || i18n.t('loadFailed'))
+  }
+}
+
+async function selectLevel(lv) {
+  form.punishment_level = lv
+  if (rawTxtContent) {
+    await parseForLevel(rawTxtContent, lv)
+  }
+}
+
+async function onLevelChange(val) {
+  if (rawTxtContent && val) {
+    await parseForLevel(rawTxtContent, val)
+  }
+}
+
+function removeDetectedLevel(idx) {
+  const removed = detectedLevels.value[idx]
+  detectedLevels.value.splice(idx, 1)
+  if (form.punishment_level === removed) {
+    form.punishment_level = detectedLevels.value[0] ?? ''
+    if (form.punishment_level && rawTxtContent) {
+      parseForLevel(rawTxtContent, form.punishment_level)
+    }
+  }
+}
+
+function addCustomLevel() {
+  const name = newLevelName.value.trim()
+  if (!name) return
+  if (!detectedLevels.value.includes(name)) {
+    detectedLevels.value.push(name)
+  }
+  form.punishment_level = name
+  showAddLevelInput.value = false
+  newLevelName.value = ''
+  if (rawTxtContent) {
+    parseForLevel(rawTxtContent, name)
+  }
+}
+
+function removePrepItem(idx) {
+  parsedPreview.prepItems.splice(idx, 1)
+  form.prep_items = JSON.stringify(parsedPreview.prepItems)
+}
+
+function addPrepItem() {
+  const item = newPrepItem.value.trim()
+  if (!item) return
+  parsedPreview.prepItems.push(item)
+  form.prep_items = JSON.stringify(parsedPreview.prepItems)
+  newPrepItem.value = ''
 }
 
 async function handleSave() {

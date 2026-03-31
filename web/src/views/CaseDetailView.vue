@@ -67,19 +67,25 @@
         </div>
       </div>
       <div style="margin-top:12px;color:#909399;font-size:13px">
-        请逐项确认所有准备物品已就位，全部确认后方可开始执行。
+        {{ i18n.t('prepConfirmAllHint') }}
       </div>
     </el-card>
 
     <!-- Phase 2: Execution (status=active, has parsed steps) -->
     <el-card v-if="caseData.status === 'active' && parsedSteps.length > 0" shadow="never" style="margin-bottom:16px">
       <template #header>
-        <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
           <span style="font-weight:600">{{ i18n.t('execPhaseTitle') }}</span>
-          <span style="color:#f56c6c;font-weight:600;font-size:16px">
-            {{ i18n.t('totalDeducted').replace('{n}', totalDeducted) }}
-            <el-tag :type="gradeTagType(currentGrade)" size="small" style="margin-left:8px">{{ i18n.t('currentGrade') }}{{ currentGrade }}</el-tag>
-          </span>
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+            <!-- Real-time clock -->
+            <span style="font-size:13px;color:#409eff;font-family:monospace;background:#ecf5ff;padding:2px 8px;border-radius:4px">
+              🕐 {{ formatDateTime(now) }}
+            </span>
+            <span style="color:#f56c6c;font-weight:600;font-size:16px">
+              {{ i18n.t('totalDeducted').replace('{n}', totalDeducted) }}
+              <el-tag :type="gradeTagType(currentGrade)" size="small" style="margin-left:8px">{{ i18n.t('currentGrade') }}{{ currentGrade }}</el-tag>
+            </span>
+          </div>
         </div>
       </template>
 
@@ -116,7 +122,7 @@
                 @click="handleCompleteStep"
               >
                 <el-icon><Check /></el-icon>
-                {{ isLastStep ? '完成全部步骤' : '完成此步骤' }}
+                {{ isLastStep ? i18n.t('btnCompleteAll') : i18n.t('btnCompleteStep') }}
               </el-button>
             </div>
           </div>
@@ -185,10 +191,15 @@
     <!-- Phase 3: Completed -->
     <el-card v-if="caseData.status === 'completed'" shadow="never" style="margin-bottom:16px">
       <template #header>
-        <span style="font-weight:600">惩罚归档</span>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-weight:600">{{ i18n.t('archivePhaseTitle') }}</span>
+          <el-button type="primary" size="small" @click="openReportDialog">
+            📄 {{ i18n.t('btnGenerateReport') }}
+          </el-button>
+        </div>
       </template>
       <el-descriptions :column="2" border>
-        <el-descriptions-item :label="i18n.t('labelPunishLevelArchive')">{{ caseData.punishment_level ? caseData.punishment_level : '-' }}</el-descriptions-item>
+        <el-descriptions-item :label="i18n.t('labelPunishLevelArchive')">{{ caseData.punishment_level ? caseData.punishment_level + '级' : '-' }}</el-descriptions-item>
         <el-descriptions-item :label="i18n.t('labelTotalDeducted')">{{ totalDeducted }}</el-descriptions-item>
         <el-descriptions-item :label="i18n.t('labelFinalGradeArchive')" :span="2">
           <el-tag :type="gradeTagType(caseData.final_grade)" size="large" style="font-size:16px;font-weight:bold">
@@ -196,6 +207,8 @@
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item :label="i18n.t('labelGradeDesc')" :span="2">{{ gradeDescription(caseData.final_grade) }}</el-descriptions-item>
+        <el-descriptions-item v-if="caseData.start_time" :label="i18n.t('execStartedAt')">{{ formatDate(caseData.start_time) }}</el-descriptions-item>
+        <el-descriptions-item v-if="caseData.end_time" :label="i18n.t('execEndedAt')">{{ formatDate(caseData.end_time) }}</el-descriptions-item>
       </el-descriptions>
     </el-card>
 
@@ -285,6 +298,132 @@
         <el-button type="primary" :loading="revokeLoading" @click="handleRevoke">{{ i18n.t('btnConfirm') }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- Score Report Dialog -->
+    <el-dialog v-model="reportVisible" :title="i18n.t('reportTitle')" width="760px" class="report-dialog">
+      <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-weight:600">{{ i18n.t('reportLang') }}：</span>
+        <el-radio-group v-model="reportLang" size="small">
+          <el-radio-button value="zh">{{ i18n.t('reportLangZh') }}</el-radio-button>
+          <el-radio-button value="en">{{ i18n.t('reportLangEn') }}</el-radio-button>
+          <el-radio-button value="bilingual">{{ i18n.t('reportLangBilingual') }}</el-radio-button>
+        </el-radio-group>
+      </div>
+
+      <!-- Report content (printable) -->
+      <div id="score-report-print" class="score-report">
+        <div class="report-header">
+          <div class="report-sys-title">{{ rLabel('家庭惩戒管理系统', 'Family Management & Penalty System') }}</div>
+          <div class="report-main-title">{{ rLabel('惩罚成绩单', 'Punishment Report Card') }}</div>
+        </div>
+
+        <table class="report-table" style="width:100%;border-collapse:collapse;margin-bottom:12px">
+          <tr>
+            <td class="report-label">{{ rLabel('案件标题', 'Case Title') }}</td>
+            <td colspan="3" class="report-value">{{ caseData.title }}</td>
+          </tr>
+          <tr>
+            <td class="report-label">{{ rLabel('家长', 'Parent') }}</td>
+            <td class="report-value">{{ getMemberName(caseData.parent_member) }}</td>
+            <td class="report-label">{{ rLabel('小孩', 'Child') }}</td>
+            <td class="report-value">{{ getMemberName(caseData.child_member) }}</td>
+          </tr>
+          <tr>
+            <td class="report-label">{{ rLabel('惩罚级别', 'Punishment Level') }}</td>
+            <td class="report-value">{{ caseData.punishment_level ? caseData.punishment_level + '级' : '-' }}</td>
+            <td class="report-label">{{ rLabel('案件编号', 'Case ID') }}</td>
+            <td class="report-value">#{{ caseData.id }}</td>
+          </tr>
+          <tr>
+            <td class="report-label">{{ rLabel('开始时间', 'Start Time') }}</td>
+            <td class="report-value">{{ caseData.start_time ? formatDate(caseData.start_time) : '-' }}</td>
+            <td class="report-label">{{ rLabel('结束时间', 'End Time') }}</td>
+            <td class="report-value">{{ caseData.end_time ? formatDate(caseData.end_time) : '-' }}</td>
+          </tr>
+        </table>
+
+        <!-- Steps executed -->
+        <div v-if="parsedSteps.length > 0" style="margin-bottom:12px">
+          <div class="report-section-title">{{ rLabel('执行步骤', 'Steps Executed') }}</div>
+          <ol style="margin:4px 0;padding-left:20px;font-size:13px">
+            <li v-for="(step, idx) in parsedSteps" :key="idx" style="margin-bottom:3px">{{ step }}</li>
+          </ol>
+        </div>
+
+        <!-- Deduction log -->
+        <div style="margin-bottom:12px">
+          <div class="report-section-title">{{ rLabel('扣分记录', 'Deduction Log') }}</div>
+          <div v-if="activePenalties.length === 0" style="font-size:13px;color:#909399;padding:4px 0">
+            {{ rLabel('本次惩罚无扣分', 'No points were deducted.') }}
+          </div>
+          <table v-else style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+              <tr style="background:#f5f7fa">
+                <th class="report-th">#</th>
+                <th class="report-th">{{ rLabel('规则', 'Rule') }}</th>
+                <th class="report-th">{{ rLabel('分值', 'Points') }}</th>
+                <th class="report-th">{{ rLabel('备注', 'Notes') }}</th>
+                <th class="report-th">{{ rLabel('时间', 'Time') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(p, idx) in activePenalties" :key="p.id">
+                <td class="report-td">{{ idx + 1 }}</td>
+                <td class="report-td">{{ p.rule_text }}</td>
+                <td class="report-td" style="color:#f56c6c">{{ p.score_delta }}</td>
+                <td class="report-td">{{ p.reason || '-' }}</td>
+                <td class="report-td">{{ formatDate(p.created_at) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Summary -->
+        <table class="report-table" style="width:100%;border-collapse:collapse;margin-bottom:16px">
+          <tr>
+            <td class="report-label" style="width:30%">{{ rLabel('总扣分', 'Total Deducted') }}</td>
+            <td class="report-value" style="color:#f56c6c;font-weight:bold;font-size:16px">{{ totalDeducted }} {{ rLabel('分', 'pts') }}</td>
+          </tr>
+          <tr>
+            <td class="report-label">{{ rLabel('最终成绩', 'Final Grade') }}</td>
+            <td class="report-value" style="font-weight:bold;font-size:18px">{{ caseData.final_grade || '-' }}</td>
+          </tr>
+          <tr v-if="caseData.description">
+            <td class="report-label">{{ rLabel('备注', 'Notes') }}</td>
+            <td class="report-value">{{ caseData.description }}</td>
+          </tr>
+        </table>
+
+        <!-- Grade description -->
+        <div style="margin-bottom:16px;font-size:12px;color:#606266;border:1px solid #eee;padding:8px;border-radius:4px;background:#fafafa">
+          {{ gradeDescription(caseData.final_grade) }}
+        </div>
+
+        <!-- Signature area -->
+        <table style="width:100%;border-collapse:collapse">
+          <tr>
+            <td style="width:50%;padding:8px 0;font-size:13px">
+              {{ rLabel('家长签名', "Parent's Signature") }}：
+              <span style="display:inline-block;width:120px;border-bottom:1px solid #333;margin-left:8px">&nbsp;</span>
+            </td>
+            <td style="width:50%;padding:8px 0;font-size:13px">
+              {{ rLabel('日期', 'Date') }}：
+              <span style="display:inline-block;width:120px;border-bottom:1px solid #333;margin-left:8px">&nbsp;</span>
+            </td>
+          </tr>
+        </table>
+
+        <div style="text-align:right;font-size:11px;color:#909399;margin-top:12px;border-top:1px solid #eee;padding-top:8px">
+          {{ rLabel('成绩单生成时间', 'Report generated at') }}：{{ formatDate(new Date()) }}
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button @click="reportVisible = false">{{ i18n.t('btnCancel') }}</el-button>
+        <el-button type="primary" @click="printReport">🖨️ {{ i18n.t('btnPrintReport') }}</el-button>
+        <el-button type="success" @click="exportPdf">📄 {{ i18n.t('btnExportPdf') }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -318,6 +457,13 @@ const revokeForm = reactive({ password: '', reason: '', penaltyId: null })
 const deductVisible = ref(false)
 const deductLoading = ref(false)
 const deductForm = reactive({ ruleText: '', points: 1 })
+
+// Score report state
+const reportVisible = ref(false)
+const reportLang = ref('zh')
+
+// Active (non-revoked) penalties for report
+const activePenalties = computed(() => penalties.value.filter(p => !p.revoked))
 
 // Quick deduct values
 const quickDeductValues = [1, 2, 3, 5, 8, 10, 15, 20]
@@ -404,6 +550,70 @@ function formatDate(d) {
   return new Date(d).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
+function formatDateTime(d) {
+  if (!d) return '-'
+  return new Date(d).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+}
+
+function openReportDialog() {
+  reportLang.value = 'zh'
+  reportVisible.value = true
+}
+
+/**
+ * Returns a label string appropriate for the current report language.
+ * - 'zh': returns zh only
+ * - 'en': returns en only
+ * - 'bilingual': returns "zh / en"
+ */
+function rLabel(zh, en) {
+  if (reportLang.value === 'en') return en
+  if (reportLang.value === 'bilingual') return `${zh} / ${en}`
+  return zh
+}
+
+function printReport() {
+  const printContent = document.getElementById('score-report-print')
+  if (!printContent) return
+  const win = window.open('', '_blank', 'width=800,height=700')
+  if (!win) return
+  win.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>${i18n.t('reportTitle')}</title>
+      <style>
+        body { font-family: 'SimSun', 'Arial', sans-serif; padding: 20px; color: #333; font-size: 13px; }
+        .report-header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 12px; }
+        .report-sys-title { font-size: 14px; color: #666; margin-bottom: 6px; }
+        .report-main-title { font-size: 22px; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; }
+        td, th { border: 1px solid #ccc; padding: 6px 10px; }
+        .report-label { background: #f5f7fa; font-weight: 600; width: 25%; }
+        .report-value { background: #fff; }
+        .report-section-title { font-weight: 600; font-size: 14px; border-left: 3px solid #409eff; padding-left: 8px; margin: 10px 0 6px; }
+        .report-th { background: #f5f7fa; font-weight: 600; text-align: center; }
+        .report-td { text-align: center; }
+        @media print { body { padding: 0; } }
+      </style>
+    </head>
+    <body>
+      ${printContent.innerHTML}
+    </body>
+    </html>
+  `)
+  win.document.close()
+  win.focus()
+  // Small delay allows the browser to finish rendering before triggering print
+  setTimeout(() => { win.print() }, 300)
+}
+
+function exportPdf() {
+  // Opens the system print dialog; choose "Save as PDF" as the printer destination
+  printReport()
+}
+
 async function loadData() {
   loading.value = true
   try {
@@ -445,9 +655,9 @@ async function handleCompleteStep() {
     const res = await completeStep(caseId)
     const data = res.data
     if (data.finished) {
-      ElMessage.success(`所有步骤已完成！最终成绩：${data.final_grade}`)
+      ElMessage.success(i18n.t('allStepsCompleted').replace('{grade}', data.final_grade))
     } else {
-      ElMessage.success('步骤已完成，进入下一步')
+      ElMessage.success(i18n.t('stepCompleted'))
     }
     await loadData()
   } catch (e) {
@@ -560,6 +770,59 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 .step-active {
   border: 2px solid #67c23a;
   background: #f0f9eb;
+}
+
+/* Score report styles */
+.score-report {
+  background: #fff;
+  padding: 8px;
+  font-family: 'SimSun', 'Arial', sans-serif;
+  font-size: 13px;
+  color: #333;
+}
+.score-report .report-header {
+  text-align: center;
+  margin-bottom: 16px;
+  border-bottom: 2px solid #333;
+  padding-bottom: 10px;
+}
+.score-report .report-sys-title {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 4px;
+}
+.score-report .report-main-title {
+  font-size: 20px;
+  font-weight: bold;
+}
+.score-report .report-section-title {
+  font-weight: 600;
+  font-size: 14px;
+  border-left: 3px solid #409eff;
+  padding-left: 8px;
+  margin: 10px 0 6px;
+}
+.score-report .report-table td,
+.score-report table td,
+.score-report table th {
+  border: 1px solid #ddd;
+  padding: 6px 10px;
+}
+.score-report .report-label {
+  background: #f5f7fa;
+  font-weight: 600;
+  width: 25%;
+}
+.score-report .report-value {
+  background: #fff;
+}
+.score-report .report-th {
+  background: #f5f7fa;
+  font-weight: 600;
+  text-align: center;
+}
+.score-report .report-td {
+  text-align: center;
 }
 </style>
 
