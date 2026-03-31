@@ -150,7 +150,34 @@
         </el-form-item>
 
         <el-form-item :label="i18n.t('labelIssueAuth')" prop="id_issue_authority">
-          <el-input v-model="form.id_issue_authority" :placeholder="i18n.t('placeholderIssueAuth')" />
+          <!-- Fixed issuer (types 31/02/03/52): auto-filled, read-only -->
+          <el-input
+            v-if="issuerIsFixed"
+            v-model="form.id_issue_authority"
+            disabled
+            style="width: 100%"
+          />
+          <!-- Type 04: dropdown with date-dependent options + embassies + MFA offices -->
+          <el-select
+            v-else-if="form.id_doc_type === '04'"
+            v-model="form.id_issue_authority"
+            :placeholder="i18n.t('placeholderIssueAuthSelect')"
+            filterable
+            style="width: 100%"
+          >
+            <el-option
+              v-for="opt in type04IssuerOptions"
+              :key="opt"
+              :label="opt"
+              :value="opt"
+            />
+          </el-select>
+          <!-- All other types: free text input -->
+          <el-input
+            v-else
+            v-model="form.id_issue_authority"
+            :placeholder="i18n.t('placeholderIssueAuth')"
+          />
         </el-form-item>
 
         <!-- Auxiliary documents (shown based on primary doc type) -->
@@ -368,7 +395,10 @@ import {
   validateBirthDate,
   validateIssueDate,
   validateExpiryDate,
-  validateIDConsistency
+  validateIDConsistency,
+  getFixedIssuer,
+  getType04IssuerOptions,
+  refreshEmbassyList
 } from '@/utils/constants'
 import { useI18n } from '@/utils/i18n'
 
@@ -407,8 +437,18 @@ const genderIdError = ref('')
 // Combined birth date error: range first, then ID-consistency
 const birthDateError = computed(() => birthDateRangeError.value || birthDateIdError.value)
 
-const outingDatesArray = ref([])
-const outingTimeRanges = ref([])
+// Embassy list for type-04 issuer dropdown (reactive — refreshed on mount)
+const embassyRefreshing = ref(false)
+
+// Computed: whether the issuer authority field should be read-only (fixed)
+const issuerIsFixed = computed(() => !!getFixedIssuer(form.id_doc_type))
+
+// Computed: the fixed issuer value (for types 31/02/03/52)
+const fixedIssuerValue = computed(() => getFixedIssuer(form.id_doc_type))
+
+// Computed: dropdown options for type-04 issuer
+const type04IssuerOptions = computed(() => getType04IssuerOptions(form.id_issue_date))
+
 
 const form = reactive({
   name_cn: '',
@@ -525,7 +565,7 @@ const formRules = computed(() => {
     id_doc_number: [{ required: true, message: i18n.t('validDocNumberRequired'), trigger: 'blur' }],
     id_issue_date: [{ required: true, message: i18n.t('validIssueDateRequired'), trigger: 'change' }],
     id_expiry_date: [{ required: true, message: i18n.t('validExpiryDateRequired'), trigger: 'change' }],
-    id_issue_authority: [{ required: true, message: i18n.t('validIssueAuthRequired'), trigger: 'blur' }],
+    id_issue_authority: [{ required: true, message: i18n.t('validIssueAuthRequired'), trigger: ['blur', 'change'] }],
     aux1_doc_type: needAux1 ? [{ required: true, message: i18n.t('validAux1TypeRequired'), trigger: 'change' }] : [],
     aux1_doc_number: needAux1 ? [{ required: true, message: i18n.t('validAux1NumberRequired'), trigger: 'blur' }] : [],
     aux2_doc_type: needAux2 ? [{ required: true, message: i18n.t('validAux2TypeRequired'), trigger: 'change' }] : [],
@@ -650,6 +690,23 @@ watch(() => form.id_doc_type, (newType) => {
   form.aux2_doc_number = ''
   form.proof_doc_type = ''
   form.proof_issue_country = ''
+  // Auto-fill fixed issuer for types 31/02/03/52; clear for all others (including 04)
+  const fixed = getFixedIssuer(newType)
+  if (fixed) {
+    form.id_issue_authority = fixed
+  } else {
+    form.id_issue_authority = ''
+  }
+})
+
+// When issue date changes for type 04, auto-clear issuer if it no longer matches the
+// date-dependent rule (NIA vs MPS EEA), so the user must re-select.
+watch(() => form.id_issue_date, (newDate) => {
+  if (form.id_doc_type !== '04') return
+  const options = getType04IssuerOptions(newDate)
+  if (form.id_issue_authority && !options.includes(form.id_issue_authority)) {
+    form.id_issue_authority = ''
+  }
 })
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -860,6 +917,11 @@ function openDialog(row = null) {
     if (!form.aux1_doc_number && row.aux_doc_number) {
       form.aux1_doc_number = row.aux_doc_number
     }
+    // Ensure fixed issuer is always set correctly for types 31/02/03/52
+    const fixed = getFixedIssuer(form.id_doc_type)
+    if (fixed) {
+      form.id_issue_authority = fixed
+    }
     // Parse outing_dates
     try {
       outingDatesArray.value = form.outing_dates ? JSON.parse(form.outing_dates) : []
@@ -986,5 +1048,10 @@ async function handleDelete(row) {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
-onMounted(fetchMembers)
+onMounted(() => {
+  fetchMembers()
+  // Attempt background refresh of embassy list (offline seed is always available)
+  embassyRefreshing.value = true
+  refreshEmbassyList().finally(() => { embassyRefreshing.value = false })
+})
 </script>
