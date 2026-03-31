@@ -51,7 +51,7 @@
     @closed="resetForm"
   >
     <div style="max-height: 70vh; overflow-y: auto; padding-right: 8px">
-      <el-form ref="formRef" :model="form" :rules="formRules" label-width="140px">
+      <el-form ref="formRef" :model="form" :rules="formRules" :label-width="formLabelWidth">
 
         <!-- Basic info -->
         <el-divider content-position="left">{{ i18n.t('sectionBasicInfo') }}</el-divider>
@@ -74,8 +74,8 @@
 
         <el-form-item :label="i18n.t('labelGender')" prop="gender" :error="genderIdError">
           <el-radio-group v-model="form.gender">
-            <el-radio value="男">男</el-radio>
-            <el-radio value="女">女</el-radio>
+            <el-radio value="男">{{ i18n.t('genderMale') }}</el-radio>
+            <el-radio value="女">{{ i18n.t('genderFemale') }}</el-radio>
           </el-radio-group>
         </el-form-item>
 
@@ -119,7 +119,7 @@
             <el-option
               v-for="t in ID_DOC_TYPES"
               :key="t.code"
-              :label="t.name"
+              :label="i18n.lang.value === 'en' ? `${t.code} · ${t.en || t.name}` : `${t.code} · ${t.name}`"
               :value="t.code"
             />
           </el-select>
@@ -197,7 +197,7 @@
               <el-option
                 v-for="t in aux1TypeOptions"
                 :key="t.code"
-                :label="t.name"
+                :label="docTypeLabel(t)"
                 :value="t.code"
               />
             </el-select>
@@ -219,7 +219,7 @@
                 <el-option
                   v-for="t in aux2TypeOptions"
                   :key="t.code"
-                  :label="t.name"
+                  :label="docTypeLabel(t)"
                   :value="t.code"
                 />
               </el-select>
@@ -242,7 +242,7 @@
                 <el-option
                   v-for="t in PROOF_DOC_TYPES"
                   :key="t.code"
-                  :label="t.name"
+                  :label="docTypeLabel(t)"
                   :value="t.code"
                 />
               </el-select>
@@ -440,6 +440,10 @@ const birthDateError = computed(() => birthDateRangeError.value || birthDateIdEr
 // Embassy list for type-04 issuer dropdown (reactive — refreshed on mount)
 const embassyRefreshing = ref(false)
 
+// Outing dates/times (parsed from form JSON strings for the date-picker / time-range UI)
+const outingDatesArray = ref([])
+const outingTimeRanges = ref([])
+
 // Computed: whether the issuer authority field should be read-only (fixed)
 const issuerIsFixed = computed(() => !!getFixedIssuer(form.id_doc_type))
 
@@ -448,6 +452,9 @@ const fixedIssuerValue = computed(() => getFixedIssuer(form.id_doc_type))
 
 // Computed: dropdown options for type-04 issuer
 const type04IssuerOptions = computed(() => getType04IssuerOptions(form.id_issue_date))
+
+// Computed: form label width — wider in English to avoid text wrapping
+const formLabelWidth = computed(() => i18n.lang.value === 'en' ? '160px' : '140px')
 
 
 const form = reactive({
@@ -584,7 +591,8 @@ const formRules = computed(() => {
 watch(
   () => [form.id_doc_number, form.id_doc_type, form.nationality],
   ([number, docType, nationality]) => {
-    idDocNumberError.value = validateIDNumber(docType, number, nationality) || ''
+    const errKey = validateIDNumber(docType, number, nationality)
+    idDocNumberError.value = errKey ? i18n.t(errKey) : ''
   }
 )
 
@@ -616,14 +624,16 @@ watch(
 watch(
   () => [form.aux1_doc_number, form.aux1_doc_type, form.nationality, form.birth_date, form.proof_doc_type, form.gender],
   ([number, docType, nationality, birthDate, proofDocType, gender]) => {
-    aux1DocNumberError.value = validateIDNumber(docType, number, nationality, { birthDate, proofDocType, gender }) || ''
+    const errKey = validateIDNumber(docType, number, nationality, { birthDate, proofDocType, gender })
+    aux1DocNumberError.value = errKey ? i18n.t(errKey) : ''
   }
 )
 
 watch(
   () => [form.aux2_doc_number, form.aux2_doc_type, form.nationality, form.birth_date, form.gender],
   ([number, docType, nationality, birthDate, gender]) => {
-    aux2DocNumberError.value = validateIDNumber(docType, number, nationality, { birthDate, gender }) || ''
+    const errKey = validateIDNumber(docType, number, nationality, { birthDate, gender })
+    aux2DocNumberError.value = errKey ? i18n.t(errKey) : ''
   }
 )
 
@@ -710,6 +720,14 @@ watch(() => form.id_issue_date, (newDate) => {
 })
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Return a localized label for a doc type object that may have both `name` (Chinese)
+ * and `en` (English) fields.  Always falls back to `name` if `en` is absent.
+ */
+function docTypeLabel(t) {
+  return i18n.lang.value === 'en' ? (t.en || t.name) : t.name
+}
 
 function validateSchoolNameRule(rule, value, callback) {
   if (!value || !value.trim()) {
