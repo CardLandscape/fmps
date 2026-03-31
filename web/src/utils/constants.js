@@ -903,3 +903,409 @@ export function validateIDConsistency(docType, number, gender, birthDate) {
 
   return null
 }
+
+// ─── Document Issuer Authority ────────────────────────────────────────────────
+
+/** Fixed issuer for doc type 31 (NIA) */
+export const ISSUER_NIA = '中华人民共和国国家移民管理局'
+
+/** Fixed issuer for doc types 02/03/52 (MPS EEA) */
+export const ISSUER_MPS_EEA = '中华人民共和国出入境管理局'
+
+/** Issuer for type 04 when issue date ≥ 2019-03-04 */
+export const ISSUER_NIA_04 = '中华人民共和国国家移民管理局'
+
+/** Issuer for type 04 when issue date ≤ 2019-03-03 */
+export const ISSUER_MPS_EEA_04 = '公安部出入境管理局'
+
+/** MFA Commissioner's Office in Hong Kong */
+export const ISSUER_MFA_HK = '中华人民共和国外交部驻香港特别行政区特派员公署'
+
+/** MFA Commissioner's Office in Macao */
+export const ISSUER_MFA_MO = '中华人民共和国外交部驻澳门特别行政区特派员公署'
+
+/**
+ * Built-in offline seed list of PRC embassies and consulates (excluding consular agencies).
+ * Used as a fallback when the app is offline.
+ * Source: Ministry of Foreign Affairs of the People's Republic of China.
+ */
+export const EMBASSY_SEED_LIST = [
+  // Africa — Embassies
+  '中国驻阿尔及利亚大使馆',
+  '中国驻安哥拉大使馆',
+  '中国驻贝宁大使馆',
+  '中国驻博茨瓦纳大使馆',
+  '中国驻布隆迪大使馆',
+  '中国驻喀麦隆大使馆',
+  '中国驻佛得角大使馆',
+  '中国驻中非共和国大使馆',
+  '中国驻乍得大使馆',
+  '中国驻科摩罗大使馆',
+  '中国驻刚果共和国大使馆',
+  '中国驻刚果民主共和国大使馆',
+  '中国驻科特迪瓦大使馆',
+  '中国驻吉布提大使馆',
+  '中国驻埃及大使馆',
+  '中国驻赤道几内亚大使馆',
+  '中国驻厄立特里亚大使馆',
+  '中国驻埃塞俄比亚大使馆',
+  '中国驻加蓬大使馆',
+  '中国驻冈比亚大使馆',
+  '中国驻加纳大使馆',
+  '中国驻几内亚大使馆',
+  '中国驻几内亚比绍大使馆',
+  '中国驻肯尼亚大使馆',
+  '中国驻莱索托大使馆',
+  '中国驻利比里亚大使馆',
+  '中国驻利比亚大使馆',
+  '中国驻马达加斯加大使馆',
+  '中国驻马拉维大使馆',
+  '中国驻马里大使馆',
+  '中国驻毛里塔尼亚大使馆',
+  '中国驻毛里求斯大使馆',
+  '中国驻摩洛哥大使馆',
+  '中国驻莫桑比克大使馆',
+  '中国驻纳米比亚大使馆',
+  '中国驻尼日尔大使馆',
+  '中国驻尼日利亚大使馆',
+  '中国驻卢旺达大使馆',
+  '中国驻圣多美和普林西比大使馆',
+  '中国驻塞内加尔大使馆',
+  '中国驻塞舌尔大使馆',
+  '中国驻塞拉利昂大使馆',
+  '中国驻索马里大使馆',
+  '中国驻南非大使馆',
+  '中国驻南苏丹大使馆',
+  '中国驻苏丹大使馆',
+  '中国驻坦桑尼亚大使馆',
+  '中国驻多哥大使馆',
+  '中国驻突尼斯大使馆',
+  '中国驻乌干达大使馆',
+  '中国驻赞比亚大使馆',
+  '中国驻津巴布韦大使馆',
+  // Africa — Consulates-General
+  '中国驻开普敦总领事馆',
+  '中国驻德班总领事馆',
+  '中国驻拉各斯总领事馆',
+  // Americas — Embassies
+  '中国驻安提瓜和巴布达大使馆',
+  '中国驻阿根廷大使馆',
+  '中国驻巴哈马大使馆',
+  '中国驻巴巴多斯大使馆',
+  '中国驻玻利维亚大使馆',
+  '中国驻巴西大使馆',
+  '中国驻加拿大大使馆',
+  '中国驻智利大使馆',
+  '中国驻哥伦比亚大使馆',
+  '中国驻哥斯达黎加大使馆',
+  '中国驻古巴大使馆',
+  '中国驻多米尼克大使馆',
+  '中国驻多米尼加共和国大使馆',
+  '中国驻厄瓜多尔大使馆',
+  '中国驻萨尔瓦多大使馆',
+  '中国驻格林纳达大使馆',
+  '中国驻危地马拉大使馆',
+  '中国驻圭亚那大使馆',
+  '中国驻海地大使馆',
+  '中国驻洪都拉斯大使馆',
+  '中国驻牙买加大使馆',
+  '中国驻墨西哥大使馆',
+  '中国驻尼加拉瓜大使馆',
+  '中国驻巴拿马大使馆',
+  '中国驻秘鲁大使馆',
+  '中国驻苏里南大使馆',
+  '中国驻特立尼达和多巴哥大使馆',
+  '中国驻乌拉圭大使馆',
+  '中国驻美国大使馆',
+  '中国驻委内瑞拉大使馆',
+  // Americas — Consulates-General
+  '中国驻卡尔加里总领事馆',
+  '中国驻蒙特利尔总领事馆',
+  '中国驻多伦多总领事馆',
+  '中国驻温哥华总领事馆',
+  '中国驻芝加哥总领事馆',
+  '中国驻休斯顿总领事馆',
+  '中国驻洛杉矶总领事馆',
+  '中国驻迈阿密总领事馆',
+  '中国驻纽约总领事馆',
+  '中国驻旧金山总领事馆',
+  '中国驻圣保罗总领事馆',
+  '中国驻里约热内卢总领事馆',
+  '中国驻蒙特雷总领事馆',
+  '中国驻瓜达拉哈拉总领事馆',
+  // Asia & Middle East — Embassies
+  '中国驻阿富汗大使馆',
+  '中国驻亚美尼亚大使馆',
+  '中国驻阿塞拜疆大使馆',
+  '中国驻巴林大使馆',
+  '中国驻孟加拉国大使馆',
+  '中国驻文莱大使馆',
+  '中国驻柬埔寨大使馆',
+  '中国驻东帝汶大使馆',
+  '中国驻格鲁吉亚大使馆',
+  '中国驻印度大使馆',
+  '中国驻印度尼西亚大使馆',
+  '中国驻伊朗大使馆',
+  '中国驻伊拉克大使馆',
+  '中国驻以色列大使馆',
+  '中国驻日本大使馆',
+  '中国驻约旦大使馆',
+  '中国驻哈萨克斯坦大使馆',
+  '中国驻科威特大使馆',
+  '中国驻吉尔吉斯斯坦大使馆',
+  '中国驻老挝大使馆',
+  '中国驻黎巴嫩大使馆',
+  '中国驻马来西亚大使馆',
+  '中国驻马尔代夫大使馆',
+  '中国驻蒙古国大使馆',
+  '中国驻缅甸大使馆',
+  '中国驻尼泊尔大使馆',
+  '中国驻朝鲜大使馆',
+  '中国驻阿曼大使馆',
+  '中国驻巴基斯坦大使馆',
+  '中国驻巴勒斯坦大使馆',
+  '中国驻菲律宾大使馆',
+  '中国驻卡塔尔大使馆',
+  '中国驻沙特阿拉伯大使馆',
+  '中国驻新加坡大使馆',
+  '中国驻韩国大使馆',
+  '中国驻斯里兰卡大使馆',
+  '中国驻叙利亚大使馆',
+  '中国驻塔吉克斯坦大使馆',
+  '中国驻泰国大使馆',
+  '中国驻土耳其大使馆',
+  '中国驻土库曼斯坦大使馆',
+  '中国驻阿联酋大使馆',
+  '中国驻乌兹别克斯坦大使馆',
+  '中国驻越南大使馆',
+  '中国驻也门大使馆',
+  // Asia & Middle East — Consulates-General
+  '中国驻阿拉木图总领事馆',
+  '中国驻吉大港总领事馆',
+  '中国驻登巴萨总领事馆',
+  '中国驻棉兰总领事馆',
+  '中国驻泗水总领事馆',
+  '中国驻孟买总领事馆',
+  '中国驻加尔各答总领事馆',
+  '中国驻金奈总领事馆',
+  '中国驻班加罗尔总领事馆',
+  '中国驻伊斯坦布尔总领事馆',
+  '中国驻福冈总领事馆',
+  '中国驻名古屋总领事馆',
+  '中国驻大阪总领事馆',
+  '中国驻札幌总领事馆',
+  '中国驻长崎总领事馆',
+  '中国驻哥打基纳巴卢总领事馆',
+  '中国驻古晋总领事馆',
+  '中国驻槟城总领事馆',
+  '中国驻曼德勒总领事馆',
+  '中国驻卡拉奇总领事馆',
+  '中国驻拉合尔总领事馆',
+  '中国驻白沙瓦总领事馆',
+  '中国驻宿务总领事馆',
+  '中国驻釜山总领事馆',
+  '中国驻光州总领事馆',
+  '中国驻济州总领事馆',
+  '中国驻宋卡总领事馆',
+  '中国驻清迈总领事馆',
+  '中国驻岘港总领事馆',
+  '中国驻胡志明市总领事馆',
+  // Europe — Embassies
+  '中国驻阿尔巴尼亚大使馆',
+  '中国驻奥地利大使馆',
+  '中国驻白俄罗斯大使馆',
+  '中国驻比利时大使馆',
+  '中国驻波斯尼亚和黑塞哥维那大使馆',
+  '中国驻保加利亚大使馆',
+  '中国驻克罗地亚大使馆',
+  '中国驻塞浦路斯大使馆',
+  '中国驻捷克大使馆',
+  '中国驻丹麦大使馆',
+  '中国驻爱沙尼亚大使馆',
+  '中国驻芬兰大使馆',
+  '中国驻法国大使馆',
+  '中国驻德国大使馆',
+  '中国驻希腊大使馆',
+  '中国驻匈牙利大使馆',
+  '中国驻冰岛大使馆',
+  '中国驻爱尔兰大使馆',
+  '中国驻意大利大使馆',
+  '中国驻拉脱维亚大使馆',
+  '中国驻立陶宛大使馆',
+  '中国驻卢森堡大使馆',
+  '中国驻马耳他大使馆',
+  '中国驻摩尔多瓦大使馆',
+  '中国驻摩纳哥大使馆',
+  '中国驻黑山大使馆',
+  '中国驻荷兰大使馆',
+  '中国驻北马其顿大使馆',
+  '中国驻挪威大使馆',
+  '中国驻波兰大使馆',
+  '中国驻葡萄牙大使馆',
+  '中国驻罗马尼亚大使馆',
+  '中国驻俄罗斯大使馆',
+  '中国驻圣马力诺大使馆',
+  '中国驻塞尔维亚大使馆',
+  '中国驻斯洛伐克大使馆',
+  '中国驻斯洛文尼亚大使馆',
+  '中国驻西班牙大使馆',
+  '中国驻瑞典大使馆',
+  '中国驻瑞士大使馆',
+  '中国驻乌克兰大使馆',
+  '中国驻英国大使馆',
+  // Europe — Consulates-General
+  '中国驻巴塞罗那总领事馆',
+  '中国驻爱丁堡总领事馆',
+  '中国驻曼彻斯特总领事馆',
+  '中国驻法兰克福总领事馆',
+  '中国驻汉堡总领事馆',
+  '中国驻慕尼黑总领事馆',
+  '中国驻杜塞尔多夫总领事馆',
+  '中国驻日内瓦总领事馆',
+  '中国驻佛罗伦萨总领事馆',
+  '中国驻米兰总领事馆',
+  '中国驻里昂总领事馆',
+  '中国驻马赛总领事馆',
+  '中国驻斯特拉斯堡总领事馆',
+  '中国驻哥德堡总领事馆',
+  '中国驻圣彼得堡总领事馆',
+  '中国驻叶卡捷琳堡总领事馆',
+  '中国驻哈巴罗夫斯克总领事馆',
+  '中国驻海参崴总领事馆',
+  '中国驻伊尔库茨克总领事馆',
+  '中国驻克拉科夫总领事馆',
+  '中国驻格但斯克总领事馆',
+  '中国驻弗罗茨瓦夫总领事馆',
+  '中国驻克卢日总领事馆',
+  '中国驻阿姆斯特丹总领事馆',
+  // Oceania — Embassies
+  '中国驻澳大利亚大使馆',
+  '中国驻斐济大使馆',
+  '中国驻基里巴斯大使馆',
+  '中国驻密克罗尼西亚大使馆',
+  '中国驻新西兰大使馆',
+  '中国驻巴布亚新几内亚大使馆',
+  '中国驻萨摩亚大使馆',
+  '中国驻所罗门群岛大使馆',
+  '中国驻汤加大使馆',
+  '中国驻瓦努阿图大使馆',
+  // Oceania — Consulates-General
+  '中国驻阿德莱德总领事馆',
+  '中国驻布里斯班总领事馆',
+  '中国驻墨尔本总领事馆',
+  '中国驻珀斯总领事馆',
+  '中国驻悉尼总领事馆',
+  '中国驻奥克兰总领事馆',
+  '中国驻基督城总领事馆'
+]
+
+const EMBASSY_STORAGE_KEY = 'fmps_embassy_list'
+
+/**
+ * Get the current embassy/consulate list.
+ * Returns the cached list from localStorage if available, otherwise the seed list.
+ * @returns {string[]}
+ */
+export function getEmbassyList() {
+  try {
+    const stored = localStorage.getItem(EMBASSY_STORAGE_KEY)
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed
+      }
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return EMBASSY_SEED_LIST
+}
+
+/**
+ * Attempt to refresh the embassy/consulate list from a remote source.
+ * On success, updates localStorage cache and returns the new list.
+ * On failure, silently falls back to the current list (seed or cached).
+ * @returns {Promise<string[]>}
+ */
+export async function refreshEmbassyList() {
+  try {
+    const resp = await fetch(
+      'https://en.wikipedia.org/w/api.php?action=parse&page=List_of_diplomatic_missions_of_China&prop=wikitext&format=json&origin=*',
+      { signal: AbortSignal.timeout(10000) }
+    )
+    if (!resp.ok) throw new Error('HTTP ' + resp.status)
+    const data = await resp.json()
+    const wikitext = data?.parse?.wikitext?.['*'] || ''
+    const missions = _parseEmbassiesFromWikitext(wikitext)
+    if (missions.length > 10) {
+      localStorage.setItem(EMBASSY_STORAGE_KEY, JSON.stringify(missions))
+      return missions
+    }
+  } catch {
+    // Network error or parse failure — fall through to seed
+  }
+  return getEmbassyList()
+}
+
+/**
+ * Parse embassy/consulate names from Wikipedia wikitext.
+ * Returns an array of Chinese name strings.
+ * @param {string} wikitext
+ * @returns {string[]}
+ */
+function _parseEmbassiesFromWikitext(wikitext) {
+  const results = []
+  const seen = new Set()
+  const lines = wikitext.split('\n')
+  for (const line of lines) {
+    const m = line.match(/中国驻.+?(?:大使馆|总领事馆|领事馆)/)
+    if (m) {
+      const name = m[0].replace(/[[\]{}|]/g, '').trim()
+      if (name && !seen.has(name)) {
+        seen.add(name)
+        results.push(name)
+      }
+    }
+  }
+  return results
+}
+
+/**
+ * Get the issuer authority options for document type 04 (Chinese Passport).
+ * The list varies based on issue date.
+ *
+ * @param {string} issueDate  - YYYY-MM-DD; may be empty while user is selecting
+ * @returns {string[]} ordered array of issuer name strings
+ */
+export function getType04IssuerOptions(issueDate) {
+  const embassies = getEmbassyList()
+  const fixed = []
+  if (issueDate) {
+    const d = parseYMD(issueDate)
+    // 2019-03-04: the date when the National Immigration Administration (NIA) was
+    // established and took over passport issuance from the MPS Exit-Entry Administration.
+    const cutoff = { y: 2019, m: 3, d: 4 }
+    if (d && compareYMD(d, cutoff) >= 0) {
+      fixed.push(ISSUER_NIA_04)
+    } else if (d) {
+      fixed.push(ISSUER_MPS_EEA_04)
+    } else {
+      fixed.push(ISSUER_NIA_04, ISSUER_MPS_EEA_04)
+    }
+  } else {
+    // No date yet — offer both authority options
+    fixed.push(ISSUER_NIA_04, ISSUER_MPS_EEA_04)
+  }
+  return [...fixed, ...embassies, ISSUER_MFA_HK, ISSUER_MFA_MO]
+}
+
+/**
+ * Return the fixed issuer authority for a given doc type, or null if not fixed.
+ * @param {string} docType
+ * @returns {string|null}
+ */
+export function getFixedIssuer(docType) {
+  if (docType === '31') return ISSUER_NIA
+  if (['02', '03', '52'].includes(docType)) return ISSUER_MPS_EEA
+  return null
+}
