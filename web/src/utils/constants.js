@@ -257,16 +257,16 @@ export const COUNTRIES = [
 
 // 证件类型
 export const ID_DOC_TYPES = [
-  { code: '01', name: '中国居民身份证' },
-  { code: '91', name: '居民户口簿' },
-  { code: '11', name: '港澳居民居住证' },
-  { code: '21', name: '台湾居民居住证' },
-  { code: '31', name: '2023版外国人永久居留身份证' },
-  { code: '02', name: '港澳居民来往内地通行证' },
-  { code: '03', name: '台湾居民来往大陆通行证' },
-  { code: '04', name: '中国护照' },
-  { code: '05', name: '外国护照' },
-  { code: '52', name: '港澳居民来往内地通行证（非中国籍）' }
+  { code: '01', name: '中国居民身份证', en: 'Resident ID Card' },
+  { code: '91', name: '居民户口簿', en: 'Household Register' },
+  { code: '11', name: '港澳居民居住证', en: 'HK/Macao Residence Permit' },
+  { code: '21', name: '台湾居民居住证', en: 'Taiwan Residence Permit' },
+  { code: '31', name: '2023版外国人永久居留身份证', en: 'China Green Card' },
+  { code: '02', name: '港澳居民来往内地通行证', en: 'Home-Return Permit' },
+  { code: '03', name: '台湾居民来往大陆通行证', en: 'Mainland Travel Permit for Taiwan Residents' },
+  { code: '04', name: '中国护照', en: 'Chinese Passport' },
+  { code: '05', name: '外国护照', en: 'Foreign Passport' },
+  { code: '52', name: '港澳居民来往内地通行证（非中国籍）', en: 'Home-Return Permit (Non-CN)' }
 ]
 
 /**
@@ -332,8 +332,8 @@ export function validateNationalityDocType(docType, nationality) {
   return null
 }
 
-// Generic error returned for all ID number format/content violations
-const ID_NUMBER_INVALID = '证件号码无效'
+// i18n key returned for all ID number format/content violations
+const ID_NUMBER_INVALID_KEY = 'invalidIdNumber'
 
 /**
  * 18位中国居民身份证格式校验（仅校验格式和校验码，不校验性别/出生日期）
@@ -374,7 +374,7 @@ function validateChineseID(id) {
  */
 export function validateIDNumber(docType, number, nationality, opts = {}) {
   if (!number) return null
-  const INVALID = ID_NUMBER_INVALID
+  const INVALID = ID_NUMBER_INVALID_KEY
   switch (docType) {
     case '01':
     case '91':
@@ -519,26 +519,26 @@ function validateAux94Number(number, proofDocType) {
 
 // 辅助证件类型
 export const AUX_DOC_TYPES = [
-  { code: '02', name: '02-港澳居民来往内地通行证' },
-  { code: '03', name: '03-台湾居民来往大陆通行证' },
-  { code: '05', name: '05-外国护照' },
-  { code: '90', name: '90-香港永久性居民身份证' },
-  { code: '92', name: '92-香港居民身份证' },
-  { code: '93', name: '93-台湾居民身份证' },
-  { code: '94', name: '94-中国公民定居国外的证明文件' },
-  { code: '95', name: '95-香港永久性居民身份证（外国籍）' },
-  { code: '96', name: '96-澳门居民身份证' },
-  { code: '97', name: '97-澳门永久性居民身份证' },
-  { code: '98', name: '98-澳门永久性居民身份证（外国籍）' }
+  { code: '02', name: '02-港澳居民来往内地通行证', en: '02-Home-Return Permit' },
+  { code: '03', name: '03-台湾居民来往大陆通行证', en: '03-Mainland Travel Permit for TW' },
+  { code: '05', name: '05-外国护照', en: '05-Foreign Passport' },
+  { code: '90', name: '90-香港永久性居民身份证', en: '90-HK Permanent Resident ID' },
+  { code: '92', name: '92-香港居民身份证', en: '92-HK Identity Card' },
+  { code: '93', name: '93-台湾居民身份证', en: '93-Taiwan ID Card' },
+  { code: '94', name: '94-中国公民定居国外的证明文件', en: '94-Overseas Chinese Proof Doc' },
+  { code: '95', name: '95-香港永久性居民身份证（外国籍）', en: '95-HK Perm. Resident ID (Foreign)' },
+  { code: '96', name: '96-澳门居民身份证', en: '96-Macao Identity Card' },
+  { code: '97', name: '97-澳门永久性居民身份证', en: '97-Macao Permanent Resident ID' },
+  { code: '98', name: '98-澳门永久性居民身份证（外国籍）', en: '98-Macao Perm. Resident ID (Foreign)' }
 ]
 
 // 证明文件类型（主证件为04时的辅助证件94的补充字段）
 export const PROOF_DOC_TYPES = [
-  { code: '94RV', name: '94RV-定居签证' },
-  { code: '94PV', name: '94PV-永久居留签证' },
-  { code: '94PC', name: '94PC-永久居留卡' },
-  { code: '94PE', name: '94PE-永久居留电子签证' },
-  { code: '94NP', name: '94NP-国家移民管理局护照查询结果' }
+  { code: '94RV', name: '94RV-定居签证', en: '94RV-Settlement Visa' },
+  { code: '94PV', name: '94PV-永久居留签证', en: '94PV-Permanent Residence Visa' },
+  { code: '94PC', name: '94PC-永久居留卡', en: '94PC-Permanent Residence Card' },
+  { code: '94PE', name: '94PE-永久居留电子签证', en: '94PE-Permanent Residence e-Visa' },
+  { code: '94NP', name: '94NP-国家移民管理局护照查询结果', en: '94NP-NIA Passport Record' }
 ]
 
 // 台湾地区代码停发日期（零值表示仍在使用）
