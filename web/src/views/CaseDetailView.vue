@@ -109,6 +109,39 @@
             <div style="font-size:15px;font-weight:500;margin-bottom:12px;line-height:1.6">
               {{ parsedSteps[caseData.current_step_index ?? 0] }}
             </div>
+
+            <!-- Posture info panel: shown when current step references a known posture -->
+            <div
+              v-if="currentStepPostures.length > 0"
+              style="margin-bottom:12px"
+            >
+              <div
+                v-for="posture in currentStepPostures"
+                :key="posture.name"
+                style="background:#fffbe6;border:1px solid #ffe58f;border-radius:6px;padding:10px 14px;margin-bottom:8px"
+              >
+                <div style="font-weight:600;color:#d48806;margin-bottom:6px;font-size:14px">
+                  📐 {{ posture.name }}
+                </div>
+                <div v-if="posture.requirements" style="font-size:13px;color:#595959;margin-bottom:6px;line-height:1.6">
+                  <span style="font-weight:600">{{ i18n.t('postureRequirements') }}：</span>{{ posture.requirements }}
+                </div>
+                <div v-if="posture.deduct_rule" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  <span style="font-size:13px;color:#cf1322">
+                    <span style="font-weight:600">{{ i18n.t('postureDeductRule') }}：</span>{{ posture.deduct_rule }}
+                  </span>
+                  <el-button
+                    v-if="posture.deduct_points > 0"
+                    type="danger"
+                    size="small"
+                    @click="handlePostureDeduct(posture)"
+                  >
+                    -{{ posture.deduct_points }} {{ i18n.t('postureQuickDeduct') }}
+                  </el-button>
+                </div>
+              </div>
+            </div>
+
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <!-- Deduct button: quick amounts -->
               <el-button type="danger" size="small" @click="openDeductDialog()">
@@ -446,6 +479,7 @@ const steps = ref([])        // legacy pipe-format steps
 const parsedSteps = ref([])  // new structured steps (array of strings)
 const prepItems = ref([])    // preparation items
 const prepChecked = ref([])  // checkbox state per prep item
+const postures = ref([])     // punishment postures parsed from TXT
 const penalties = ref([])
 const totalDeducted = ref(0)
 const currentGrade = ref('满分')
@@ -486,6 +520,15 @@ const stepProgress = computed(() => {
 const isLastStep = computed(() => {
   const idx = caseData.value.current_step_index ?? 0
   return idx >= parsedSteps.value.length - 1
+})
+
+// Postures relevant to the current execution step.
+// A posture is considered "active" if its name appears as a substring of the current step text.
+const currentStepPostures = computed(() => {
+  if (!postures.value.length || !parsedSteps.value.length) return []
+  const stepIdx = caseData.value.current_step_index ?? 0
+  const stepText = parsedSteps.value[stepIdx] ?? ''
+  return postures.value.filter(p => p.name && stepText.includes(p.name))
 })
 
 // ---- Legacy step logic ----
@@ -622,6 +665,7 @@ async function loadData() {
     steps.value = res.data.punishment_steps ?? []
     parsedSteps.value = res.data.parsed_steps ?? []
     prepItems.value = res.data.prep_items ?? []
+    postures.value = res.data.postures ?? []
     penalties.value = res.data.penalty_points ?? []
     totalDeducted.value = res.data.total_deducted ?? 0
     currentGrade.value = res.data.current_grade ?? '满分'
@@ -685,6 +729,24 @@ function openDeductDialog() {
   deductForm.ruleText = ''
   deductForm.points = 1
   deductVisible.value = true
+}
+
+/**
+ * Quick deduction triggered from posture panel — deducts the posture's default points.
+ */
+async function handlePostureDeduct(posture) {
+  const pts = posture.deduct_points || 1
+  try {
+    await addPenalty(caseId, {
+      rule_text: i18n.t('postureViolation').replace('{name}', posture.name),
+      score_delta: -pts,
+      reason: posture.deduct_rule || ''
+    })
+    ElMessage.success(i18n.t('deductSuccess').replace('{n}', pts))
+    await loadData()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || i18n.t('saveFailed'))
+  }
 }
 
 async function handleDeduct() {

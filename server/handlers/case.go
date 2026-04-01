@@ -29,6 +29,14 @@ type PunishmentStep struct {
 	DeductScore       int      `json:"deduct_score"`
 }
 
+// Posture represents a punishment posture parsed from the "惩罚姿势" section of a TXT file.
+type Posture struct {
+	Name         string `json:"name"`
+	Requirements string `json:"requirements"`
+	DeductRule   string `json:"deduct_rule"`
+	DeductPoints int    `json:"deduct_points"`
+}
+
 // ParsePunishmentProcess 解析惩罚过程文本，每行一条步骤（旧格式兼容）
 // 格式：starttime|duration|punishmentdetails|req1|req2|req3|req4|req5|deductscorerule|deductscore
 func ParsePunishmentProcess(text string) []PunishmentStep {
@@ -77,6 +85,9 @@ var levelSectionRegex = regexp.MustCompile(`^([A-D])级$`)
 
 // levelHeaderRegex matches any "X级" standalone line (supports dynamic/user-defined level names)
 var levelHeaderRegex = regexp.MustCompile(`^(.+)级$`)
+
+// pointsRegex matches deduction amounts like "扣5分", "扣 5 分", "-5分".
+var pointsRegex = regexp.MustCompile(`(?:扣\s*|-\s*)(\d+)\s*分`)
 
 // ParseTxtLevels scans the "惩罚流程" section of a TXT file and returns all level names found.
 // Level names are the part before "级" in headers like "A级", "初级", "高级惩罚级", etc.
@@ -227,6 +238,90 @@ func splitPrepItems(line string) []string {
 	return items
 }
 
+// ParsePostures parses the "惩罚姿势" section of a TXT file and returns all postures with
+// their requirements and deduction rules.  Each posture occupies one or more lines:
+//
+//	<posture name>               (plain name line — not starting with 要求/扣分/编号)
+//	要求[：:]  <requirements>    (optional, may be on same or subsequent lines)
+//	扣分[标准][：:]  <rule>      (optional deduction rule, may include "扣N分")
+//
+// The section ends at the next major section header (惩罚工具/成绩/流程).
+func ParsePostures(content string) []Posture {
+	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
+	inSection := false
+	var postures []Posture
+	var cur *Posture
+
+	flushCurrent := func() {
+		if cur != nil && cur.Name != "" {
+			postures = append(postures, *cur)
+			cur = nil
+		}
+	}
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+
+		// Detect start of posture section
+		if !inSection {
+			if strings.Contains(trimmed, "惩罚姿势") {
+				inSection = true
+				// The header line itself is not a posture name
+			}
+			continue
+		}
+
+		// End posture section at other major section headers
+		if strings.Contains(trimmed, "惩罚工具") ||
+			strings.Contains(trimmed, "惩罚成绩") ||
+			strings.Contains(trimmed, "惩罚流程") {
+			break
+		}
+
+		// Strip leading serial numbers like "1.", "一、", "（1）"
+		cleaned := regexp.MustCompile(`^[\d一二三四五六七八九十]+[\.、）\)]\s*`).ReplaceAllString(trimmed, "")
+		cleaned = strings.TrimSpace(cleaned)
+
+		// "要求" line — append to current posture's requirements
+		if strings.HasPrefix(cleaned, "要求") {
+			if cur == nil {
+				continue
+			}
+			req := strings.TrimPrefix(cleaned, "要求")
+			req = strings.TrimLeft(req, "：: ")
+			req = strings.TrimSpace(req)
+			if cur.Requirements == "" {
+				cur.Requirements = req
+			} else {
+				cur.Requirements += "；" + req
+			}
+			continue
+		}
+
+		// "扣分" line — extract rule text and optional point value
+		if strings.Contains(cleaned, "扣分") {
+			if cur == nil {
+				continue
+			}
+			cur.DeductRule = cleaned
+			if m := pointsRegex.FindStringSubmatch(cleaned); m != nil {
+				// m[1] is guaranteed to be a digit string from the regex, so Atoi cannot fail.
+				cur.DeductPoints, _ = strconv.Atoi(m[1])
+			}
+			continue
+		}
+
+		// Otherwise it's a new posture name
+		flushCurrent()
+		cur = &Posture{Name: cleaned}
+	}
+	flushCurrent()
+	return postures
+}
+
 // computeGrade maps total deducted points to a grade string.
 // totalDeducted should be the absolute value of total negative score_delta.
 func computeGrade(totalDeducted int) string {
@@ -284,6 +379,12 @@ func (h *CaseHandler) Get(c *gin.Context) {
 		_ = json.Unmarshal([]byte(cas.PrepItems), &prepItems)
 	}
 
+	// Postures stored with the case (parsed from TXT at import time)
+	var postures []Posture
+	if cas.Postures != "" {
+		_ = json.Unmarshal([]byte(cas.Postures), &postures)
+	}
+
 	// Compute running total
 	totalDeducted := 0
 	for _, p := range penalties {
@@ -297,6 +398,7 @@ func (h *CaseHandler) Get(c *gin.Context) {
 		"punishment_steps": steps,
 		"parsed_steps":     parsedSteps,
 		"prep_items":       prepItems,
+		"postures":         postures,
 		"penalty_points":   penalties,
 		"total_deducted":   totalDeducted,
 		"current_grade":    computeGrade(totalDeducted),
@@ -382,9 +484,11 @@ func (h *CaseHandler) ParseTxt(c *gin.Context) {
 		return
 	}
 	prepItems, steps := ParseTxtByLevel(req.Content, level)
+	postures := ParsePostures(req.Content)
 	c.JSON(http.StatusOK, gin.H{
 		"prep_items": prepItems,
 		"steps":      steps,
+		"postures":   postures,
 	})
 }
 

@@ -65,7 +65,7 @@
         <el-input v-model="form.title" :placeholder="i18n.t('placeholderCaseTitle')" />
       </el-form-item>
       <el-form-item :label="i18n.t('labelCaseParent')" prop="parent_member_id">
-        <el-select v-model="form.parent_member_id" placeholder="请选择家长成员" style="width:100%">
+        <el-select v-model="form.parent_member_id" :placeholder="i18n.t('placeholderCaseParent')" style="width:100%">
           <el-option
             v-for="m in parentMembers"
             :key="m.id"
@@ -75,7 +75,7 @@
         </el-select>
       </el-form-item>
       <el-form-item :label="i18n.t('labelCaseChild')" prop="child_member_id">
-        <el-select v-model="form.child_member_id" placeholder="请选择小孩成员" style="width:100%">
+        <el-select v-model="form.child_member_id" :placeholder="i18n.t('placeholderCaseChild')" style="width:100%">
           <el-option
             v-for="m in childMembers"
             :key="m.id"
@@ -241,7 +241,7 @@ const editingId = ref(null)
 const formRef = ref(null)
 const txtFileInput = ref(null)
 
-const parsedPreview = reactive({ prepItems: [], steps: [] })
+const parsedPreview = reactive({ prepItems: [], steps: [], postures: [] })
 const detectedLevels = ref([])
 const showAddLevelInput = ref(false)
 const newLevelName = ref('')
@@ -256,6 +256,7 @@ const defaultForm = () => ({
   punishment_level: '',
   prep_items: '',
   parsed_steps: '',
+  postures: '',
   txt_filename: '',
   punishment_process: ''
 })
@@ -327,6 +328,7 @@ function openDialog(row = null) {
   Object.assign(form, defaultForm())
   parsedPreview.prepItems = []
   parsedPreview.steps = []
+  parsedPreview.postures = []
   detectedLevels.value = []
   showAddLevelInput.value = false
   newLevelName.value = ''
@@ -341,6 +343,7 @@ function openDialog(row = null) {
     form.punishment_level = row.punishment_level ?? ''
     form.prep_items = row.prep_items ?? ''
     form.parsed_steps = row.parsed_steps ?? ''
+    form.postures = row.postures ?? ''
     form.txt_filename = row.txt_filename ?? ''
     form.punishment_process = row.punishment_process ?? ''
     // Restore preview from saved data
@@ -349,6 +352,9 @@ function openDialog(row = null) {
     }
     if (form.parsed_steps) {
       try { parsedPreview.steps = JSON.parse(form.parsed_steps) } catch { /* ignore */ }
+    }
+    if (form.postures) {
+      try { parsedPreview.postures = JSON.parse(form.postures) } catch { /* ignore */ }
     }
     // If there's a saved level, show it as a detected level option
     if (form.punishment_level) {
@@ -365,6 +371,7 @@ function resetForm() {
   editingId.value = null
   parsedPreview.prepItems = []
   parsedPreview.steps = []
+  parsedPreview.postures = []
   detectedLevels.value = []
   showAddLevelInput.value = false
   newLevelName.value = ''
@@ -417,10 +424,13 @@ async function parseForLevel(content, level) {
     const data = res.data
     const prepItems = data.prep_items ?? []
     const steps = data.steps ?? []
+    const postures = data.postures ?? []
     parsedPreview.prepItems = prepItems
     parsedPreview.steps = steps
+    parsedPreview.postures = postures
     form.prep_items = JSON.stringify(prepItems)
     form.parsed_steps = JSON.stringify(steps)
+    form.postures = JSON.stringify(postures)
     ElMessage.success(`${i18n.t('prepItemsLabel')}: ${prepItems.length}, ${i18n.t('execStepsLabel')}: ${steps.length}`)
   } catch (err) {
     ElMessage.error(err.response?.data?.message || i18n.t('loadFailed'))

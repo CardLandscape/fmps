@@ -328,6 +328,12 @@ const messages = {
     revokeSuccess: '撤回成功',
     loadCaseFailed: '加载案件失败',
 
+    // Posture panel (CaseDetailView)
+    postureRequirements: '姿势要求',
+    postureDeductRule: '扣分标准',
+    postureQuickDeduct: '快速扣分',
+    postureViolation: '{name}违规',
+
     // Dynamic levels (CasesView)
     btnDetectLevels: '解析TXT',
     btnAddLevel: '添加级别',
@@ -711,6 +717,12 @@ const messages = {
     deductSuccess: '{n} points deducted',
     revokeSuccess: 'Revocation successful',
     loadCaseFailed: 'Failed to load case',
+
+    // Posture panel (CaseDetailView)
+    postureRequirements: 'Posture Requirements',
+    postureDeductRule: 'Deduction Rule',
+    postureQuickDeduct: 'Quick Deduct',
+    postureViolation: '{name} violation',
 
     // Dynamic levels (CasesView)
     btnDetectLevels: 'Detect Levels',
