@@ -17,6 +17,7 @@ type Case struct {
 	PunishmentLevel   string     `json:"punishment_level"`    // A/B/C/D
 	PrepItems         string     `json:"prep_items"`          // JSON array of preparation item strings
 	ParsedSteps       string     `json:"parsed_steps"`        // JSON array of step strings
+	Postures          string     `json:"postures"`            // JSON array of Posture objects parsed from TXT
 	// CurrentStepIndex tracks execution progress:
 	//   -1 = preparation phase (items must be checked before starting)
 	//   0+ = index of the currently active execution step
